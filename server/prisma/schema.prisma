@@ -1,0 +1,116 @@
+datasource db {
+      provider = "postgresql"
+      url      = env("DATABASE_URL")
+}
+
+generator client {
+      provider = "prisma-client-js"
+}
+
+// 1. Users table
+model User {
+      id        String   @id @default(uuid())
+      name      String
+      email     String   @unique
+      password  String
+      createdAt DateTime @default(now())
+
+      memberships TeamMembership[]
+      workItems   WorkItem[]       @relation("CreatedWorkItems")
+      assigned    WorkItem[]       @relation("AssignedWorkItems")
+      comments    Comment[]
+      activities  ActivityEvent[]
+}
+
+// 2. Teams table
+model Team {
+      id          String   @id @default(uuid())
+      name        String   @unique
+      description String?
+      createdAt   DateTime @default(now())
+
+      memberships TeamMembership[]
+      workItems   WorkItem[]
+}
+
+// 3. Team Memberships (Many-to-Many with Roles)
+model TeamMembership {
+      id     String @id @default(uuid())
+      userId String
+      teamId String
+      role   String @default("Member") // Viewer, Member, Lead, Admin
+
+      user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+      team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+      @@unique([userId, teamId])
+}
+
+// 4. Work Items (Core Entity with Version for Concurrency)
+model WorkItem {
+      id          String  @id @default(uuid())
+      title       String
+      description String?
+      type        String // Incident, CustomerIssue, Payment, Compliance, Task
+      priority    String // Low, Medium, High, Urgent
+      status      String  @default("Open") // Open, InProgress, AwaitingApproval, Resolved, Closed
+
+      teamId String
+      team   Team   @relation(fields: [teamId], references: [id])
+
+      assigneeId String?
+      assignee   User?   @relation("AssignedWorkItems", fields: [assigneeId], references: [id])
+
+      createdById String
+      createdBy   User   @relation("CreatedWorkItems", fields: [createdById], references: [id])
+
+      version   Int      @default(1) // Optimistic locking ke liye zaroori hai[cite: 11]
+      createdAt DateTime @default(now())
+      updatedAt DateTime @updatedAt
+
+      activities ActivityEvent[]
+      comments   Comment[]
+}
+
+// 5. Activity Events (Audit Trail / History)
+model ActivityEvent {
+      id         String   @id @default(uuid())
+      workItemId String
+      actorId    String
+      actionType String // e.g., STATUS_CHANGED, ASSIGNED, PRIORITY_CHANGED[cite: 8]
+      oldValue   String?
+      newValue   String?
+      createdAt  DateTime @default(now())
+
+      workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+      actor    User     @relation(fields: [actorId], references: [id])
+}
+
+// 6. Comments
+model Comment {
+      id         String   @id @default(uuid())
+      workItemId String
+      authorId   String
+      body       String
+      createdAt  DateTime @default(now())
+
+      workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+      author   User     @relation(fields: [authorId], references: [id])
+}
+
+// 7. Idempotency Keys (Double-click & Retry Protection)
+model IdempotencyKey {
+      key          String   @id
+      responseBody String // JSON stored as string
+      statusCode   Int
+      createdAt    DateTime @default(now())
+}
+
+// 8. Outbox Jobs (Reliable Async Processing)
+model OutboxJob {
+      id        String   @id @default(uuid())
+      payload   String // JSON payload for notification/async task
+      status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+      attempts  Int      @default(0)
+      createdAt DateTime @default(now())
+}
