@@ -7,6 +7,7 @@ import workItemsRouter from "./routes/workItems.routes.js";
 import teamRouter from "./routes/teams.routes.js";
 import commentRouter from "./routes/comments.routes.js";
 import activityRouter from "./routes/activities.routes.js";
+import { startOutboxWorker } from "./workers/outbox.worker.js";
 
 
 const app = express();
@@ -33,5 +34,7 @@ const port = process.env.PORT || 5000;
 
 app.listen(port, () => {
       console.log(`Server running on port ${port}`);
+
+      startOutboxWorker();
 });
 

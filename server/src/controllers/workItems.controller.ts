@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import type { Response } from "express";
+import { OutboxService } from "../services/outbox.service.js";
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,16 @@ export const createWorkItem = async (req: AuthenticatedRequest, res: Response) =
                         }
                   });
 
+                  await OutboxService.createJob(tx, {
+                        event: 'WORK_ITEM_CREATED',
+                        workItemId: workItem.id,
+                        title: workItem.title,
+                        createdById: userId,
+                        assigneeId: assigneeId || null
+                  });
+
+                  console.log("🔥 Outbox job successfully added to transaction!");
+
                   return workItem;
             });
 
@@ -41,23 +52,60 @@ export const createWorkItem = async (req: AuthenticatedRequest, res: Response) =
       }
 }
 
-export const getWorkByTeam = async (req: AuthenticatedRequest, res: Response) => {
+export const getWorkByTeam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       try {
             const { teamId } = req.params;
+            const { page = '1', limit = '10', status, priority, assigneeId, q } = req.query;
+
             if (typeof teamId !== 'string') {
                   res.status(400).json({ error: 'Invalid teamId' });
                   return;
             }
-            const items = await prisma.workItem.findMany({
-                  where: { teamId },
-                  include: { assignee: true, createdBy: true },
-                  orderBy: { createdAt: 'desc' }
+
+            const pageNumber = parseInt(page as string, 10);
+            const pageSize = parseInt(limit as string, 10);
+            const skip = (pageNumber - 1) * pageSize;
+
+            // Dynamic where clause for filtering and search
+            const whereClause: any = { teamId };
+
+            if (status) whereClause.status = status;
+            if (priority) whereClause.priority = priority;
+            if (assigneeId) whereClause.assigneeId = assigneeId;
+
+            if (q) {
+                  whereClause.OR = [
+                        { title: { contains: q as string, mode: 'insensitive' } },
+                        { description: { contains: q as string, mode: 'insensitive' } }
+                  ];
+            }
+
+            // Total count aur paginated items ek sath fetch karein
+            const [items, totalCount] = await prisma.$transaction([
+                  prisma.workItem.findMany({
+                        where: whereClause,
+                        include: { assignee: true, createdBy: true },
+                        orderBy: { createdAt: 'desc' },
+                        skip: skip,
+                        take: pageSize
+                  }),
+                  prisma.workItem.count({ where: whereClause })
+            ]);
+
+            res.json({
+                  data: items,
+                  pagination: {
+                        total: totalCount,
+                        page: pageNumber,
+                        limit: pageSize,
+                        totalPages: Math.ceil(totalCount / pageSize)
+                  }
             });
-            res.json(items);
       } catch (error) {
+            console.error('Fetch Work Items Error:', error);
             res.status(500).json({ error: 'Failed to fetch work items' });
       }
-}
+};
 
 //3.Update the workItem via its id using optimistic locking
 export const updateWork = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
