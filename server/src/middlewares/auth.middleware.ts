@@ -46,14 +46,27 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
 };
 
 // 2. Team Role-Based Access Control (RBAC) Middleware
+// 2. Team Role-Based Access Control (RBAC) Middleware (Safe Version)
 export const requireTeamRole = (allowedRoles: string[]) => {
       return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
             try {
                   const userId = req.user?.id;
-                  const teamId = req.params.teamId || req.body.teamId;
+                  // Safe optional chaining to prevent undefined reading errors
+                  let teamId = req.params?.teamId || req.body?.teamId;
+
+                  // Agar teamId params ya body mein nahi hai, lekin work item ki ID available hai
+                  if (!teamId && req.params?.id) {
+                        const workItem = await prisma.workItem.findUnique({
+                              where: { id: req.params.id as string },
+                              select: { teamId: true }
+                        });
+                        if (workItem) {
+                              teamId = workItem.teamId;
+                        }
+                  }
 
                   if (!teamId) {
-                        res.status(400).json({ error: 'Bad Request: teamId is required for authorization' });
+                        res.status(400).json({ error: 'Bad Request: teamId could not be resolved for authorization' });
                         return;
                   }
 
@@ -70,7 +83,8 @@ export const requireTeamRole = (allowedRoles: string[]) => {
 
                   next();
             } catch (error) {
+                  console.error("Team Role Middleware Error:", (error as Error).message);
                   res.status(500).json({ error: 'Internal Server Error during authorization' });
             }
       };
-};
+}

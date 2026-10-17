@@ -59,9 +59,10 @@ export const getWorkByTeam = async (req: AuthenticatedRequest, res: Response) =>
       }
 }
 
+//3.Update the workItem via its id using optimistic locking
 export const updateWork = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       try {
-            const { id } = req.params as {id: string} // type cast the param id;
+            const { id } = req.params as { id: string } // type cast the param id;
             const { title, description, status, priority, type, assigneeId, version } = req.body;
             const userId = req.user!.id;
 
@@ -89,9 +90,9 @@ export const updateWork = async (req: AuthenticatedRequest, res: Response): Prom
 
             // Optimistic Locking check: Agar client ka version database ke version se match nahi karta
             if (version !== undefined && existingItem.version !== version) {
-                  res.status(409).json({ 
+                  res.status(409).json({
                         error: 'Conflict: The work item has been modified by another user. Please refresh and try again.',
-                        currentVersion: existingItem.version 
+                        currentVersion: existingItem.version
                   });
                   return;
             }
@@ -129,3 +130,87 @@ export const updateWork = async (req: AuthenticatedRequest, res: Response): Prom
             res.status(500).json({ error: 'Failed to update work item' });
       }
 }
+
+
+// 4. Get a single work item with details and activity logs
+export const getWorkItemById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const { id } = req.params as { id: string };
+            const userId = req.user!.id;
+
+            const workItem = await prisma.workItem.findUnique({
+                  where: { id },
+                  include: {
+                        assignee: { select: { id: true, email: true } },
+                        createdBy: { select: { id: true, email: true } },
+                        activities: {
+                              include: { actor: { select: { id: true, email: true } } },
+                              orderBy: { createdAt: 'desc' }
+                        }
+                  }
+            });
+
+            if (!workItem) {
+                  res.status(404).json({ error: 'Work item not found' });
+                  return;
+            }
+
+            // Verify team membership
+            const membership = await prisma.teamMembership.findUnique({
+                  where: { userId_teamId: { userId, teamId: workItem.teamId } }
+            });
+
+            if (!membership) {
+                  res.status(403).json({ error: 'Forbidden: You do not have access to this work item' });
+                  return;
+            }
+
+            res.json(workItem);
+      } catch (error) {
+            console.error('Get Work Item Error:', error);
+            res.status(500).json({ error: 'Failed to fetch work item details' });
+      }
+};
+
+// 5. Delete a work item (Restricted to Admin, Lead, or the creator)
+export const deleteWorkItem = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const { id } = req.params as { id: string };
+            const userId = req.user!.id;
+
+            const workItem = await prisma.workItem.findUnique({
+                  where: { id }
+            });
+
+            if (!workItem) {
+                  res.status(404).json({ error: 'Work item not found' });
+                  return;
+            }
+
+            // Check user membership and permissions
+            const membership = await prisma.teamMembership.findUnique({
+                  where: { userId_teamId: { userId, teamId: workItem.teamId } }
+            });
+
+            if (!membership || (!['Admin', 'Lead'].includes(membership.role) && workItem.createdById !== userId)) {
+                  res.status(403).json({ error: 'Forbidden: Only Admins, Leads, or the creator can delete this work item' });
+                  return;
+            }
+
+            // Transaction to delete activity logs and the work item atomically
+            await prisma.$transaction(async (tx) => {
+                  await tx.activityEvent.deleteMany({
+                        where: { workItemId: id }
+                  });
+
+                  await tx.workItem.delete({
+                        where: { id }
+                  });
+            });
+
+            res.json({ message: 'Work item deleted successfully' });
+      } catch (error) {
+            console.error('Delete Work Item Error:', error);
+            res.status(500).json({ error: 'Failed to delete work item' });
+      }
+};
