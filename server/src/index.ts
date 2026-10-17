@@ -5,6 +5,8 @@ import { PrismaClient } from "@prisma/client";
 import authRouter from "./routes/auth.routes.js";
 import workItemsRouter from "./routes/workItems.routes.js";
 import teamRouter from "./routes/teams.routes.js";
+import commentRouter from "./routes/comments.routes.js";
+import activityRouter from "./routes/activities.routes.js";
 
 
 const app = express();
@@ -24,6 +26,8 @@ app.use("/api", authRouter);
 app.use("/api", workItemsRouter);
 app.patch("/api", workItemsRouter);
 app.use("/api", teamRouter);
+app.use("/api", commentRouter)
+app.use("/api", activityRouter);
 
 const port = process.env.PORT || 5000;
 
