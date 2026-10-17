@@ -130,51 +130,172 @@ export const addTeamMember = async (req: AuthenticatedRequest, res: Response): P
 
 // 3. Update a team member's role (Only Admin can do this)
 export const updateTeamMemberRole = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-        const teamId = req.params.teamId as string;
-        const memberId = req.params.memberId as string; // Yeh user ka ID hai jiska role change karna hai
-        const { role } = req.body;
+      try {
+            const teamId = req.params.teamId as string;
+            const memberId = req.params.memberId as string; // Yeh user ka ID hai jiska role change karna hai
+            const { role } = req.body;
 
-        const validRoles = ['Admin', 'Lead', 'Member', 'Viewer'];
-        if (!role || !validRoles.includes(role)) {
-            res.status(400).json({ error: 'Invalid or missing role. Allowed roles: Admin, Lead, Member, Viewer' });
-            return;
-        }
+            const validRoles = ['Admin', 'Lead', 'Member', 'Viewer'];
+            if (!role || !validRoles.includes(role)) {
+                  res.status(400).json({ error: 'Invalid or missing role. Allowed roles: Admin, Lead, Member, Viewer' });
+                  return;
+            }
 
-        // Check if the membership exists
-        const membership = await prisma.teamMembership.findUnique({
-            where: {
-                userId_teamId: {
-                    userId: memberId,
-                    teamId,
-                },
-            },
-        });
+            // Check if the membership exists
+            const membership = await prisma.teamMembership.findUnique({
+                  where: {
+                        userId_teamId: {
+                              userId: memberId,
+                              teamId,
+                        },
+                  },
+            });
 
-        if (!membership) {
-            res.status(404).json({ error: 'Membership not found for this user in the team' });
-            return;
-        }
+            if (!membership) {
+                  res.status(404).json({ error: 'Membership not found for this user in the team' });
+                  return;
+            }
 
-        // Update the role
-        const updatedMembership = await prisma.teamMembership.update({
-            where: {
-                userId_teamId: {
-                    userId: memberId,
-                    teamId,
-                },
-            },
-            data: { role },
-        });
+            // Update the role
+            const updatedMembership = await prisma.teamMembership.update({
+                  where: {
+                        userId_teamId: {
+                              userId: memberId,
+                              teamId,
+                        },
+                  },
+                  data: { role },
+            });
 
-        res.status(200).json({
-            message: 'Team member role updated successfully',
-            membership: updatedMembership,
-        });
-    } catch (error) {
-        console.error('Update Member Role Error:', error);
-        res.status(500).json({ error: 'Internal server error while updating member role' });
-    }
+            res.status(200).json({
+                  message: 'Team member role updated successfully',
+                  membership: updatedMembership,
+            });
+      } catch (error) {
+            console.error('Update Member Role Error:', error);
+            res.status(500).json({ error: 'Internal server error while updating member role' });
+      }
+};
+
+//4. Get current user teams
+export const getUserTeams = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const userId = req.user!.id;
+
+            const memberships = await prisma.teamMembership.findMany({
+                  where: { userId },
+                  include: { team: true }
+            });
+
+            const teams = memberships.map(m => ({
+                  ...m.team,
+                  role: m.role // User ka us team mein kya role hai (Admin, Lead, Member, Viewer)
+            }));
+
+            res.json(teams);
+      } catch (error) {
+            console.error('Get User Teams Error:', error);
+            res.status(500).json({ error: 'Failed to fetch teams' });
+      }
 };
 
 
+//5.Get all members of a Team
+export const getTeamMembers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const { teamId } = req.params as { teamId: string };
+            const userId = req.user!.id;
+
+            // Pehle check karo ki requesting user khud us team ka member hai ya nahi
+            const membership = await prisma.teamMembership.findUnique({
+                  where: { userId_teamId: { userId, teamId } }
+            });
+
+            if (!membership) {
+                  res.status(403).json({ error: 'Forbidden: You do not have access to this team' });
+                  return;
+            }
+
+            const members = await prisma.teamMembership.findMany({
+                  where: { teamId },
+                  include: {
+                        user: { select: { id: true, name: true, email: true } }
+                  }
+            });
+
+            res.json(members);
+      } catch (error) {
+            console.error('Get Team Members Error:', error);
+            res.status(500).json({ error: 'Failed to fetch team members' });
+      }
+};
+
+
+// GET /teams - Fetch all teams in the system
+export const getAllTeams = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const { search } = req.query;
+            const whereClause: any = {};
+
+            if (search && (search as string).trim() !== '') {
+                  whereClause.name = { contains: search as string, mode: 'insensitive' };
+            }
+
+            const teams = await prisma.team.findMany({
+                  where: whereClause,
+                  include: {
+                        _count: {
+                              select: {
+                                    memberships: true,
+                                    workItems: true
+                              }
+                        }
+                  },
+                  orderBy: { name: 'asc' }
+            });
+
+            res.json(teams);
+      } catch (error) {
+            console.error('Get All Teams Error:', error);
+            res.status(500).json({ error: 'Failed to fetch teams' });
+      }
+};
+
+
+// GET /teams/:id - Fetch single team details
+export const getTeamById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const { id } = req.params as { id: string };
+            const userId = req.user!.id;
+
+            const team = await prisma.team.findUnique({
+                  where: { id },
+                  include: {
+                        memberships: {
+                              include: {
+                                    user: { select: { id: true, name: true, email: true } }
+                              }
+                        },
+                        _count: {
+                              select: { workItems: true }
+                        }
+                  }
+            });
+
+            if (!team) {
+                  res.status(404).json({ error: 'Team not found' });
+                  return;
+            }
+
+            // Check current user's membership role in this team
+            const userMembership = team.memberships.find(m => m.userId === userId);
+
+            res.json({
+                  ...team,
+                  currentUserRole: userMembership ? userMembership.role : null
+            });
+      } catch (error) {
+            console.error('Get Team By ID Error:', error);
+            res.status(500).json({ error: 'Failed to fetch team details' });
+      }
+};

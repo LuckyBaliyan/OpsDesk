@@ -8,6 +8,7 @@ import teamRouter from "./routes/teams.routes.js";
 import commentRouter from "./routes/comments.routes.js";
 import activityRouter from "./routes/activities.routes.js";
 import { startOutboxWorker } from "./workers/outbox.worker.js";
+import userRouter from "./routes/users.routes.js";
 
 
 const app = express();
@@ -29,6 +30,7 @@ app.patch("/api", workItemsRouter);
 app.use("/api", teamRouter);
 app.use("/api", commentRouter)
 app.use("/api", activityRouter);
+app.use("/api", userRouter);
 
 const port = process.env.PORT || 5000;
 
