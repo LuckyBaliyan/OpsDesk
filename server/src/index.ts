@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express"
 import cors from "cors";
-import {PrismaClient} from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import authRouter from "./routes/auth.routes.js";
 import workItemsRouter from "./routes/workItems.routes.js";
+import teamRouter from "./routes/teams.routes.js";
 
-//dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
@@ -13,9 +13,9 @@ const prisma = new PrismaClient();
 app.use(express.json());
 app.use(cors());
 
-app.get("/health", (req, res)=>{
+app.get("/health", (req, res) => {
       res.json({
-            message:"OK",
+            message: "OK",
             time: new Date()
       })
 });
@@ -23,6 +23,7 @@ app.get("/health", (req, res)=>{
 app.use("/api", authRouter);
 app.use("/api", workItemsRouter);
 app.patch("/api", workItemsRouter);
+app.use("/api", teamRouter);
 
 const port = process.env.PORT || 5000;
 
