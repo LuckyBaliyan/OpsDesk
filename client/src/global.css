@@ -6,6 +6,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+* {
+      user-select: none;
+}
+
 /* ---------- Base ---------- */
 @layer base {
       * {

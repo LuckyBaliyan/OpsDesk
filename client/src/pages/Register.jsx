@@ -3,25 +3,33 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useRegisterUserMutation } from '@/stores/slices/authSlice';
+import { FullPageLoader, Loader } from '@/components/ui/Loader';
+import { setCredentials } from '@/stores/slices/userSlice';
+import { useDispatch } from 'react-redux';
 
 export default function Register() {
       const navigate = useNavigate();
+      const dispatch = useDispatch();
       const [formData, setFormData] = useState({ name: '', email: '', password: '' });
-      const [loading, setLoading] = useState(false);
+      const [registerUser, { isLoading, error }] = useRegisterUserMutation();
 
       const handleChange = (e) => {
             setFormData({ ...formData, [e.target.name]: e.target.value });
       };
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
             e.preventDefault();
-            setLoading(true);
-
-            setTimeout(() => {
-                  setLoading(false);
-                  navigate('/login');
-            }, 500);
+            try {
+                  const response = await registerUser(formData).unwrap();
+                  dispatch(setCredentials({ user: response.user, token: response.token }));
+                  navigate("/dashboard");
+            } catch (error) {
+                  console.log("Error registering:", error);
+            }
       };
+
+      if (isLoading) return <FullPageLoader />;
 
       return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
@@ -73,10 +81,17 @@ export default function Register() {
 
                               <Button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={isLoading}
                                     className="w-full h-10 bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors mt-2"
                               >
-                                    {loading ? 'Creating account...' : 'Create account'}
+                                    {isLoading ? (
+                                          <div className="flex items-center gap-2">
+                                                <Loader size="sm" />
+                                                <span>Signing in...</span>
+                                          </div>
+                                    ) : (
+                                          'Sign in'
+                                    )}
                               </Button>
                         </form>
 
