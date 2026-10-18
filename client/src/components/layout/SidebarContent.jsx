@@ -1,10 +1,12 @@
 import { Layers, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, TriangleAlert, UserCheck, Users } from 'lucide-react';
-
+import { useDispatch, useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/shared/UserAvatar';
 import NavLabel from './NavLabel';
 import NavItem from './NavItem';
+import { useGetTeamMembersQuery, useGetUserTeamsQuery } from '@/stores/slices/teamApiSlice';
+import { logout, selectCurrentUser } from '@/stores/slices/userSlice';
 
 function TeamButton({ team, active, onClick }) {
       return (
@@ -19,24 +21,31 @@ function TeamButton({ team, active, onClick }) {
             >
                   <Users className="size-[18px] shrink-0" />
                   <span className="flex-1 truncate text-left">{team.name}</span>
-                  <span className="text-xs font-normal text-muted-foreground">{team.myRole ?? 'View only'}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{team.role ?? 'View only'}</span>
             </button>
       );
 }
 
 export default function SidebarContent({
-      teams,
+      //teams,
       activeTeamId, // null = "All teams" overview
       onSelectTeam,
       onSelectOverview,
       view,
       onSelectView,
-      user,
+      //user,
       onNavigate,
 }) {
+      const dispatch = useDispatch();
+      const currentUser = useSelector(selectCurrentUser);
+
+      const { data: teamsData, isLoading } = useGetUserTeamsQuery();
+
+      const teams = teamsData?.teams || teamsData || [];
+
       const inTeam = activeTeamId !== null;
-      const myTeams = teams.filter((t) => t.myRole);
-      const otherTeams = teams.filter((t) => !t.myRole);
+      const myTeams = teams.filter((t) => t.role);
+      const otherTeams = teams.filter((t) => !t.role);
 
       const pickView = (v) => {
             onSelectView(v);
@@ -49,6 +58,10 @@ export default function SidebarContent({
       const pickTeam = (id) => {
             onSelectTeam(id);
             onNavigate?.();
+      };
+
+      const handleSignOut = () => {
+            dispatch(logout());
       };
 
       return (
@@ -75,25 +88,31 @@ export default function SidebarContent({
                               )}
                         </div>
 
-                        {myTeams.length > 0 && (
+                        {isLoading ? (
+                              <div className="px-4 py-2 text-xs text-muted-foreground">Loading teams...</div>
+                        ) : (
                               <>
-                                    <NavLabel>My teams</NavLabel>
-                                    <div className="space-y-1">
-                                          {myTeams.map((t) => (
-                                                <TeamButton key={t.id} team={t} active={t.id === activeTeamId} onClick={() => pickTeam(t.id)} />
-                                          ))}
-                                    </div>
-                              </>
-                        )}
+                                    {myTeams.length > 0 && (
+                                          <>
+                                                <NavLabel>My teams</NavLabel>
+                                                <div className="space-y-1">
+                                                      {myTeams.map((t) => (
+                                                            <TeamButton key={t.id || t._id} team={t} active={(t.id || t._id) === activeTeamId} onClick={() => pickTeam(t.id || t._id)} />
+                                                      ))}
+                                                </div>
+                                          </>
+                                    )}
 
-                        {otherTeams.length > 0 && (
-                              <>
-                                    <NavLabel>Other teams</NavLabel>
-                                    <div className="space-y-1">
-                                          {otherTeams.map((t) => (
-                                                <TeamButton key={t.id} team={t} active={t.id === activeTeamId} onClick={() => pickTeam(t.id)} />
-                                          ))}
-                                    </div>
+                                    {otherTeams.length > 0 && (
+                                          <>
+                                                <NavLabel>Other teams</NavLabel>
+                                                <div className="space-y-1">
+                                                      {otherTeams.map((t) => (
+                                                            <TeamButton key={t.id || t._id} team={t} active={(t.id || t._id) === activeTeamId} onClick={() => pickTeam(t.id || t._id)} />
+                                                      ))}
+                                                </div>
+                                          </>
+                                    )}
                               </>
                         )}
                   </nav>
@@ -101,10 +120,10 @@ export default function SidebarContent({
                   {/* bottom card (same slot as "Grab Pro Now") */}
                   <div className="p-4">
                         <div className="flex flex-col items-center rounded-xl bg-muted/50 px-4 py-6 text-center">
-                              <UserAvatar name={user.name} email={user.email} className="size-14 text-base [&_span]:text-base" />
-                              <p className="mt-4 text-base font-semibold">{user.name}</p>
-                              <p className="mt-0.5 max-w-full truncate text-sm text-muted-foreground">{user.email}</p>
-                              <Button className="mt-4 h-9 cursor-pointer px-5">
+                              <UserAvatar name={currentUser?.name || 'USER'} email={currentUser?.email} className="size-14 text-base [&_span]:text-base" />
+                              <p className="mt-4 text-base font-semibold">{currentUser?.name || 'USER'}</p>
+                              <p className="mt-0.5 max-w-full truncate text-sm text-muted-foreground">{currentUser?.email}</p>
+                              <Button className="mt-4 h-9 cursor-pointer px-5" onClick={handleSignOut}>
                                     <LogOut className="size-4" />
                                     Sign out
                               </Button>

@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { APPROVER_ROLES, PAGE_SIZE, WRITE_ROLES } from '@/lib/constants';
 import { isUnassignedUrgent } from '@/lib/helpers';
 import { ME, TEAMS, MEMBERS, USERS, buildActivities, buildItems } from '@/data/mockData';
+import { useGetUserTeamsQuery, useGetAllTeamsQuery } from '@/stores/slices/teamApiSlice';
+import { selectCurrentUser } from '@/stores/slices/userSlice';
 import useDashboardData from '@/hooks/userDashBoardData';
 
 import Sidebar from '@/components/layout/SideBar';
@@ -24,8 +26,17 @@ import TeamMembersCard from '@/components/dashboard/TeamMembersCard';
 
 import CreateItemDialog from '@/components/dialogs/CreateItemDialog';
 import EditItemDialog from '@/components/dialogs/EditItemDialog';
+import { useSelector } from 'react-redux';
 
 export default function DashBoard() {
+      const currentUser = useSelector(selectCurrentUser);
+      const { data: userTeamsData } = useGetUserTeamsQuery(currentUser?.id);
+      const { data: allTeamsData } = useGetAllTeamsQuery();
+
+      const teams = userTeamsData?.teams || userTeamsData || [];
+      const allTeams = allTeamsData?.teams || allTeamsData || teams;
+
+
       const [collapsed, setCollapsed] = useState(false); // desktop sidebar
       const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
       const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -56,8 +67,8 @@ export default function DashBoard() {
       const [createOpen, setCreateOpen] = useState(false);
       const [editItem, setEditItem] = useState(null);
 
-      const activeTeam = TEAMS.find((t) => t.id === activeTeamId) ?? null;
-      const role = activeTeam?.myRole ?? null; // null when not a member -> view only
+      const activeTeam = teams.find((t) => (t.id || t._id) === activeTeamId) ?? null;
+      const role = activeTeam?.role ?? null; // null when not a member -> view only
       const canWrite = WRITE_ROLES.includes(role);
       const isApprover = APPROVER_ROLES.includes(role);
       const members = activeTeam ? MEMBERS[activeTeam.id] ?? [] : [];
@@ -74,7 +85,7 @@ export default function DashBoard() {
             const q = search.trim().toLowerCase();
             return teamItems
                   .filter((i) => {
-                        if (view === 'mine' && i.assigneeId !== ME.id) return false;
+                        if (view === 'mine' && i.assigneeId !== currentUser?.id) return false;
                         if (view === 'urgent' && !isUnassignedUrgent(i)) return false;
                         if (view === 'approval' && i.status !== 'AwaitingApproval') return false;
                         if (statusFilter !== 'all' && i.status !== statusFilter) return false;
@@ -179,13 +190,13 @@ export default function DashBoard() {
       };
 
       const sidebarProps = {
-            teams: TEAMS,
+            teams: teams,
             activeTeamId,
             onSelectTeam: selectTeam,
             onSelectOverview: goToOverview,
             view,
             onSelectView: goTo,
-            user: ME,
+            user: currentUser,
       };
 
       /* ---------------------------------------------------------------------- */
@@ -197,7 +208,7 @@ export default function DashBoard() {
 
                   <div className={cn(!collapsed && 'lg:pl-64')}>
                         <Header
-                              user={ME}
+                              user={currentUser}
                               search={search}
                               onSearchChange={setSearch}
                               canWrite={canWrite}
@@ -213,11 +224,11 @@ export default function DashBoard() {
                               {!activeTeam ? (
                                     /* ---------- ALL TEAMS ---------- */
                                     <AllTeamsOverview
-                                          teams={TEAMS}
+                                          teams={allTeams}
                                           items={allItems}
                                           members={MEMBERS}
                                           search={search}
-                                          user={ME}
+                                          user={currentUser}
                                           onSelectTeam={selectTeam}
                                     />
                               ) : (
@@ -286,7 +297,7 @@ export default function DashBoard() {
                               key={`${editItem.id}-${editItem.version}`}
                               item={allItems.find((i) => i.id === editItem.id) ?? editItem}
                               members={members}
-                              meId={ME.id}
+                              meId={currentUser?.id}
                               canWrite={canWrite}
                               onClose={() => setEditItem(null)}
                               onSave={saveItem}
