@@ -1,0 +1,115 @@
+import { Layers, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, TriangleAlert, UserCheck, Users } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import UserAvatar from '@/components/shared/UserAvatar';
+import NavLabel from './NavLabel';
+import NavItem from './NavItem';
+
+function TeamButton({ team, active, onClick }) {
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  aria-pressed={active}
+                  className={cn(
+                        'flex h-10 w-full cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors hover:bg-accent',
+                        active ? 'bg-accent text-foreground' : 'text-sidebar-foreground'
+                  )}
+            >
+                  <Users className="size-[18px] shrink-0" />
+                  <span className="flex-1 truncate text-left">{team.name}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{team.myRole ?? 'View only'}</span>
+            </button>
+      );
+}
+
+export default function SidebarContent({
+      teams,
+      activeTeamId, // null = "All teams" overview
+      onSelectTeam,
+      onSelectOverview,
+      view,
+      onSelectView,
+      user,
+      onNavigate,
+}) {
+      const inTeam = activeTeamId !== null;
+      const myTeams = teams.filter((t) => t.myRole);
+      const otherTeams = teams.filter((t) => !t.myRole);
+
+      const pickView = (v) => {
+            onSelectView(v);
+            onNavigate?.();
+      };
+      const pickOverview = () => {
+            onSelectOverview();
+            onNavigate?.();
+      };
+      const pickTeam = (id) => {
+            onSelectTeam(id);
+            onNavigate?.();
+      };
+
+      return (
+            <div className="flex h-full flex-col">
+                  <div className="flex h-[68px] shrink-0 items-center gap-2 px-5">
+                        <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                              <Layers className="size-4" />
+                        </span>
+                        <span className="text-xl font-semibold tracking-tight">OpsDesk.</span>
+                  </div>
+
+                  <nav className="flex-1 overflow-y-auto px-4 pb-4">
+                        <NavLabel>Dashboard</NavLabel>
+                        <div className="space-y-1">
+                              <NavItem icon={LayoutGrid} active={!inTeam} onClick={pickOverview}>All teams</NavItem>
+
+                              {inTeam && (
+                                    <>
+                                          <NavItem icon={LayoutDashboard} active={view === 'all'} onClick={() => pickView('all')}>Team overview</NavItem>
+                                          <NavItem icon={UserCheck} active={view === 'mine'} onClick={() => pickView('mine')}>Assigned to me</NavItem>
+                                          <NavItem icon={TriangleAlert} active={view === 'urgent'} onClick={() => pickView('urgent')}>Unassigned urgent</NavItem>
+                                          <NavItem icon={ShieldCheck} active={view === 'approval'} onClick={() => pickView('approval')}>Awaiting approval</NavItem>
+                                    </>
+                              )}
+                        </div>
+
+                        {myTeams.length > 0 && (
+                              <>
+                                    <NavLabel>My teams</NavLabel>
+                                    <div className="space-y-1">
+                                          {myTeams.map((t) => (
+                                                <TeamButton key={t.id} team={t} active={t.id === activeTeamId} onClick={() => pickTeam(t.id)} />
+                                          ))}
+                                    </div>
+                              </>
+                        )}
+
+                        {otherTeams.length > 0 && (
+                              <>
+                                    <NavLabel>Other teams</NavLabel>
+                                    <div className="space-y-1">
+                                          {otherTeams.map((t) => (
+                                                <TeamButton key={t.id} team={t} active={t.id === activeTeamId} onClick={() => pickTeam(t.id)} />
+                                          ))}
+                                    </div>
+                              </>
+                        )}
+                  </nav>
+
+                  {/* bottom card (same slot as "Grab Pro Now") */}
+                  <div className="p-4">
+                        <div className="flex flex-col items-center rounded-xl bg-muted/50 px-4 py-6 text-center">
+                              <UserAvatar name={user.name} email={user.email} className="size-14 text-base [&_span]:text-base" />
+                              <p className="mt-4 text-base font-semibold">{user.name}</p>
+                              <p className="mt-0.5 max-w-full truncate text-sm text-muted-foreground">{user.email}</p>
+                              <Button className="mt-4 h-9 cursor-pointer px-5">
+                                    <LogOut className="size-4" />
+                                    Sign out
+                              </Button>
+                        </div>
+                  </div>
+            </div>
+      );
+}
