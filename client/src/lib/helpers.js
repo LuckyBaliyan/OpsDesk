@@ -22,8 +22,20 @@ export const timeAgo = (d) => {
       return days < 7 ? `${days}d ago` : fmtDate(d);
 };
 
-export const isActive = (item) => !['Resolved', 'Closed'].includes(item.status);
-export const isUnassignedUrgent = (item) => item.priority === 'Urgent' && !item.assigneeId && isActive(item);
+export const isActive = (item) => {
+      if (!item || !item.status) return false;
+      const st = item.status.toLowerCase();
+      return st !== 'resolved' && st !== 'closed';
+};
+
+export const isUnassignedUrgent = (item) => {
+      if (!item) return false;
+      const pr = (item.priority || '').toLowerCase();
+      const isUrgentOrHigh = pr === 'urgent' || pr === 'high';
+      const isUnassigned = !item.assigneeId && !item.assignee;
+      return isUrgentOrHigh && isUnassigned && isActive(item);
+};
+
 export const pctOf = (n, total) => (total ? Math.round((n / total) * 100) : 0);
 
 export const describeActivity = (a) => {

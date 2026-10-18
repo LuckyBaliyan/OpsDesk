@@ -17,7 +17,7 @@ export default function TeamBanner({ team, canWrite, onBack }) {
                         <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                     <h1 className="text-lg font-medium">{team.name}</h1>
-                                    <Chip tone={canWrite ? 'up' : 'down'}>{team.myRole ?? 'Not a member'}</Chip>
+                                    <Chip tone={canWrite ? 'up' : 'down'}>{team.role ?? 'Not a member'}</Chip>
                               </div>
                               <p className="truncate text-sm text-muted-foreground">
                                     {team.description}

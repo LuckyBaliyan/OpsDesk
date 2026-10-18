@@ -3,8 +3,9 @@ import { useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { APPROVER_ROLES, PAGE_SIZE, WRITE_ROLES } from '@/lib/constants';
 import { isUnassignedUrgent } from '@/lib/helpers';
-import { ME, TEAMS, MEMBERS, USERS, buildActivities, buildItems } from '@/data/mockData';
-import { useGetUserTeamsQuery, useGetAllTeamsQuery } from '@/stores/slices/teamApiSlice';
+import { MEMBERS, USERS, buildActivities } from '@/data/mockData';
+import { useGetUserTeamsQuery, useGetAllTeamsQuery, useGetTeamMembersQuery } from '@/stores/slices/teamApiSlice';
+import { useGetAllWorkItemsQuery } from '@/stores/slices/workItemsApiSlice';
 import { selectCurrentUser } from '@/stores/slices/userSlice';
 import useDashboardData from '@/hooks/userDashBoardData';
 
@@ -32,14 +33,16 @@ export default function DashBoard() {
       const currentUser = useSelector(selectCurrentUser);
       const { data: userTeamsData } = useGetUserTeamsQuery(currentUser?.id);
       const { data: allTeamsData } = useGetAllTeamsQuery();
+      const { data: workItemsData } = useGetAllWorkItemsQuery();
 
       const teams = userTeamsData?.teams || userTeamsData || [];
       const allTeams = allTeamsData?.teams || allTeamsData || teams;
 
+      // Real items from API
+      const allItems = useMemo(() => workItemsData?.data || workItemsData || [], [workItemsData]);
+      const [allActivities, setAllActivities] = useState(() => buildActivities([]));
 
-      // Enrich allTeams with role and myRole properties from user's joined teams
       const enrichedAllTeams = useMemo(() => {
-            // Map for quick lookup of user's roles in teams
             const userTeamRoleMap = new Map();
             teams.forEach((t) => {
                   const teamId = t.id || t._id;
@@ -55,33 +58,24 @@ export default function DashBoard() {
                   return {
                         ...team,
                         role: assignedRole,
-                        myRole: assignedRole, // standardizing both fields so old UI works seamlessly
+                        myRole: assignedRole,
                   };
             });
       }, [allTeams, teams]);
 
-
-      const [collapsed, setCollapsed] = useState(false); // desktop sidebar
-      const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
+      const [collapsed, setCollapsed] = useState(false);
+      const [mobileOpen, setMobileOpen] = useState(false);
       const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
       const tableRef = useRef(null);
 
-      const [allItems, setAllItems] = useState(buildItems);
-      const [allActivities, setAllActivities] = useState(() => buildActivities(buildItems()));
-
-      // null = "All teams" overview, otherwise the id of the opened team
       const [activeTeamId, setActiveTeamId] = useState(null);
 
-      // table filters
       const [search, setSearch] = useState('');
       const [view, setView] = useState('all');
       const [statusFilter, setStatusFilter] = useState('all');
       const [priorityFilter, setPriorityFilter] = useState('all');
-
-      // chart filter (the "Year 2026" dropdown slot in the reference)
       const [chartPriority, setChartPriority] = useState('all');
 
-      // page resets to 1 whenever the filter combination changes
       const queryKey = [activeTeamId, view, statusFilter, priorityFilter, search].join('|');
       const [pageState, setPageState] = useState({ key: '', page: 1 });
       const requestedPage = pageState.key === queryKey ? pageState.page : 1;
@@ -92,19 +86,17 @@ export default function DashBoard() {
       const [editItem, setEditItem] = useState(null);
 
       const activeTeam = teams.find((t) => (t.id || t._id) === activeTeamId) ?? null;
-      const role = activeTeam?.role ?? null; // null when not a member -> view only
+      const role = activeTeam?.role ?? null;
       const canWrite = WRITE_ROLES.includes(role);
       const isApprover = APPROVER_ROLES.includes(role);
       const members = activeTeam ? MEMBERS[activeTeam.id] ?? [] : [];
 
-      /* ---- derived data ---- */
       const teamItems = useMemo(
             () => (activeTeamId ? allItems.filter((i) => i.teamId === activeTeamId) : []),
             [allItems, activeTeamId]
       );
       const { stats, chart, newItems, workload } = useDashboardData(teamItems, chartPriority);
 
-      // table
       const filtered = useMemo(() => {
             const q = search.trim().toLowerCase();
             return teamItems
@@ -118,7 +110,7 @@ export default function DashBoard() {
                         return true;
                   })
                   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      }, [teamItems, view, statusFilter, priorityFilter, search]);
+      }, [teamItems, view, statusFilter, priorityFilter, search, currentUser?.id]);
 
       const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       const page = Math.min(requestedPage, totalPages);
@@ -127,53 +119,6 @@ export default function DashBoard() {
       const selected = filtered.find((i) => i.id === selectedId) ?? items[0] ?? null;
       const activities = selected ? (allActivities[selected.id] ?? []).slice(0, 7) : [];
 
-      /* ---- local "mutations" ---- */
-      const pushActivity = (itemId, actorId, actionType, newValue) =>
-            setAllActivities((prev) => ({
-                  ...prev,
-                  [itemId]: [
-                        { id: `${itemId}-${Date.now()}-${newValue}`, actorId, actionType, newValue, createdAt: new Date().toISOString() },
-                        ...(prev[itemId] ?? []),
-                  ],
-            }));
-
-      const createItem = (data) => {
-            const id = `wi-${Date.now()}`;
-            const item = {
-                  id,
-                  teamId: activeTeamId,
-                  ...data,
-                  status: 'Open',
-                  createdById: ME.id,
-                  version: 1,
-                  createdAt: new Date().toISOString(),
-            };
-            setAllItems((prev) => [item, ...prev]);
-            setAllActivities((prev) => ({
-                  ...prev,
-                  [id]: [{ id: `${id}-a1`, actorId: ME.id, actionType: 'CREATED', newValue: item.title, createdAt: item.createdAt }],
-            }));
-            setView('all');
-            setSelectedId(id);
-      };
-
-      const saveItem = (id, form) => {
-            const current = allItems.find((i) => i.id === id);
-            if (!current) return;
-            if (form.status !== current.status) pushActivity(id, ME.id, 'UPDATED', `Status changed to ${form.status}`);
-            if (form.priority !== current.priority) pushActivity(id, ME.id, 'UPDATED', `Priority changed to ${form.priority}`);
-            if (form.assigneeId !== current.assigneeId && form.assigneeId)
-                  pushActivity(id, ME.id, 'UPDATED', `Assigned to ${USERS[form.assigneeId].name}`);
-            setAllItems((prev) =>
-                  prev.map((i) =>
-                        i.id === id
-                              ? { ...i, status: form.status, priority: form.priority, assigneeId: form.assigneeId, version: i.version + 1 }
-                              : i
-                  )
-            );
-      };
-
-      /* ---- ui helpers ---- */
       const resetFilters = () => {
             setView('all');
             setStatusFilter('all');
@@ -188,7 +133,6 @@ export default function DashBoard() {
             tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
 
-      // nextView lets the overview open a team straight on e.g. its "Unassigned urgent" tab
       const selectTeam = (id, nextView = 'all') => {
             setActiveTeamId(id);
             resetFilters();
@@ -223,8 +167,6 @@ export default function DashBoard() {
             user: currentUser,
       };
 
-      /* ---------------------------------------------------------------------- */
-
       return (
             <div className="min-h-screen bg-background text-foreground">
                   <Sidebar collapsed={collapsed} {...sidebarProps} />
@@ -246,7 +188,6 @@ export default function DashBoard() {
 
                         <main className="space-y-6 p-4">
                               {!activeTeam ? (
-                                    /* ---------- ALL TEAMS ---------- */
                                     <AllTeamsOverview
                                           teams={enrichedAllTeams}
                                           items={allItems}
@@ -256,18 +197,15 @@ export default function DashBoard() {
                                           onSelectTeam={selectTeam}
                                     />
                               ) : (
-                                    /* ---------- ONE TEAM ---------- */
                                     <>
                                           <TeamBanner team={activeTeam} canWrite={canWrite} onBack={goToOverview} />
 
-                                          {/* ROW 1 */}
                                           <section className="grid gap-6 lg:grid-cols-4">
                                                 <OperationsCard activeTeam={activeTeam} stats={stats} onGoTo={goTo} />
                                                 <ApprovalCard isApprover={isApprover} stats={stats} onGoTo={goTo} />
                                                 <TotalItemsCard stats={stats} onGoTo={goTo} />
                                           </section>
 
-                                          {/* ROW 2 */}
                                           <section className="grid gap-6 lg:grid-cols-3">
                                                 <StatusOverviewCard
                                                       chart={chart}
@@ -281,7 +219,6 @@ export default function DashBoard() {
                                                 </div>
                                           </section>
 
-                                          {/* ROW 3 */}
                                           <section ref={tableRef} className="grid scroll-mt-24 gap-6 lg:grid-cols-3">
                                                 <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} />
                                                 <WorkItemsCard
@@ -303,7 +240,6 @@ export default function DashBoard() {
                                                 />
                                           </section>
 
-                                          {/* ROW 4 */}
                                           <section>
                                                 <TeamMembersCard members={members} activeTeam={activeTeam} />
                                           </section>
@@ -313,7 +249,7 @@ export default function DashBoard() {
                   </div>
 
                   {createOpen && activeTeam && (
-                        <CreateItemDialog members={members} onClose={() => setCreateOpen(false)} onCreate={createItem} />
+                        <CreateItemDialog members={members} onClose={() => setCreateOpen(false)} onCreate={() => { }} />
                   )}
 
                   {editItem && activeTeam && (
@@ -324,7 +260,7 @@ export default function DashBoard() {
                               meId={currentUser?.id}
                               canWrite={canWrite}
                               onClose={() => setEditItem(null)}
-                              onSave={saveItem}
+                              onSave={() => { }}
                         />
                   )}
             </div>

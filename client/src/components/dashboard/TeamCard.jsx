@@ -6,6 +6,7 @@ import { CARD, STATUSES, STATUS_META } from '@/lib/constants';
 import { STATUS_COLORS } from '@/lib/chartColors';
 import Chip from '@/components/shared/Chip';
 import UserAvatar from '@/components/shared/UserAvatar';
+import { useGetTeamMembersQuery } from '@/stores/slices/teamApiSlice';
 
 function Mini({ label, value, alert }) {
       return (
@@ -18,14 +19,23 @@ function Mini({ label, value, alert }) {
 
 /* One team in the "All teams" grid. Click opens that team's dashboard. */
 export default function TeamCard({ row, onOpen }) {
-      const { team, total, active, urgent, awaiting, lead, memberCount, byStatus } = row;
+      const { team, total, active, urgent, awaiting, byStatus } = row;
+      const teamId = team.id || team._id;
+
+      // Real API call to fetch members of this specific team
+      const { data: membersData } = useGetTeamMembersQuery(teamId);
+      const teamMembers = membersData?.members || membersData?.data || (Array.isArray(membersData) ? membersData : []);
+
+      // Extract lead and member count dynamically
+      const lead = teamMembers.find((m) => m.role === 'Lead')?.user || teamMembers.find((m) => m.role === 'Lead') || null;
+      const memberCount = teamMembers.length;
 
       return (
             <Card
                   role="button"
                   tabIndex={0}
-                  onClick={() => onOpen(team.id)}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(team.id)}
+                  onClick={() => onOpen(teamId)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(teamId)}
                   className={cn(CARD, 'cursor-pointer transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring')}
             >
                   <CardContent className="flex h-full flex-col gap-3 p-4">
@@ -34,7 +44,7 @@ export default function TeamCard({ row, onOpen }) {
                                     <h3 className="truncate text-base font-medium">{team.name}</h3>
                                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground" title={team.description}>{team.description}</p>
                               </div>
-                              <Chip tone={team.myRole && team.myRole !== 'Viewer' ? 'up' : 'down'}>{team.myRole ?? 'View only'}</Chip>
+                              <Chip tone={team.role && team.role !== 'Viewer' ? 'up' : 'down'}>{team.role ?? 'View only'}</Chip>
                         </div>
 
                         <div className="grid grid-cols-4 gap-2">

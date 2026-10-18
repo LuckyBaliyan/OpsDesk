@@ -14,13 +14,13 @@ export const workItemsApiSlice = createApi({
       }),
       tagTypes: ['WorkItem'],
       endpoints: (builder) => ({
-            // Saari teams ya global work items ke liye
+            // Global work items fetch karne ke liye (/work-items/all)
             getAllWorkItems: builder.query({
-                  query: () => '/work-items',
+                  query: () => '/work-items/all',
                   transformResponse: (response) => response.data || response,
                   providesTags: ['WorkItem'],
             }),
-            // Specific team ke work items ke liye (jaise response mein 'data' array aata hai)
+            // Specific team ke work items ke liye
             getTeamWorkItems: builder.query({
                   query: (teamId) => `/teams/${teamId}/work-items`,
                   transformResponse: (response) => response.data || response,

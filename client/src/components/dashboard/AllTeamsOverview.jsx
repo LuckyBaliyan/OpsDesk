@@ -42,30 +42,34 @@ const SORTS = {
 };
 
 /* "All teams" page: clock, org-wide numbers, charts, and a card per team */
-export default function AllTeamsOverview({ teams, items, members, search, user, onSelectTeam }) {
+export default function AllTeamsOverview({ teams, items, search, user, onSelectTeam }) {
       const [scope, setScope] = useState('all'); // all | mine | others
       const [sort, setSort] = useState('default');
 
       const data = useMemo(() => {
             const rows = teams.map((team) => {
-                  const its = items.filter((i) => i.teamId === team.id);
-                  const teamMembers = members[team.id] ?? [];
+                  const teamId = team.id || team._id;
+                  const its = items.filter((i) => i.teamId === teamId);
+
                   return {
                         team,
                         total: its.length,
                         active: its.filter(isActive).length,
                         urgent: its.filter(isUnassignedUrgent).length,
-                        awaiting: its.filter((i) => i.status === 'AwaitingApproval').length,
-                        byStatus: Object.fromEntries(STATUSES.map((s) => [s, its.filter((i) => i.status === s).length])),
-                        lead: teamMembers.find((m) => m.role === 'Lead')?.user ?? null,
-                        memberCount: teamMembers.length,
+                        awaiting: its.filter((i) => i.status?.toLowerCase() === 'awaitingapproval' || i.status === 'AwaitingApproval').length,
+                        byStatus: Object.fromEntries(
+                              STATUSES.map((s) => [
+                                    s,
+                                    its.filter((i) => i.status?.toLowerCase() === s.toLowerCase()).length
+                              ])
+                        ),
                   };
             });
 
             const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
             const activeItems = items.filter(isActive);
 
-            // new items per day across every team (same logic as the team dashboard)
+            // new items per day across every team
             const now = Date.now();
             const t = (i) => new Date(i.createdAt).getTime();
             const series = Array.from({ length: 7 }, (_, d) => {
@@ -79,7 +83,7 @@ export default function AllTeamsOverview({ teams, items, members, search, user, 
             const urgentItems = items
                   .filter(isUnassignedUrgent)
                   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                  .map((i) => ({ ...i, teamName: teams.find((tm) => tm.id === i.teamId)?.name }));
+                  .map((i) => ({ ...i, teamName: teams.find((tm) => (tm.id || tm._id) === i.teamId)?.name }));
 
             return {
                   rows,
@@ -91,15 +95,24 @@ export default function AllTeamsOverview({ teams, items, members, search, user, 
                         urgent: sum('urgent'),
                         awaiting: sum('awaiting'),
                   },
-                  byStatus: Object.fromEntries(STATUSES.map((s) => [s, items.filter((i) => i.status === s).length])),
-                  byPriority: Object.fromEntries(PRIORITIES.map((p) => [p, activeItems.filter((i) => i.priority === p).length])),
+                  byStatus: Object.fromEntries(
+                        STATUSES.map((s) => [
+                              s,
+                              items.filter((i) => i.status?.toLowerCase() === s.toLowerCase()).length
+                        ])
+                  ),
+                  byPriority: Object.fromEntries(
+                        PRIORITIES.map((p) => [
+                              p,
+                              activeItems.filter((i) => i.priority?.toLowerCase() === p.toLowerCase()).length
+                        ])
+                  ),
                   activeCount: activeItems.length,
                   newItems: { series, thisWeek, delta },
                   urgentItems,
             };
-      }, [teams, items, members]);
+      }, [teams, items]);
 
-      // header search filters teams by name / description here
       const q = search.trim().toLowerCase();
       const visible = data.rows
             .filter((r) => !q || `${r.team.name} ${r.team.description}`.toLowerCase().includes(q))
@@ -109,7 +122,7 @@ export default function AllTeamsOverview({ teams, items, members, search, user, 
 
       const grid = (list) => (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((r) => <TeamCard key={r.team.id} row={r} onOpen={onSelectTeam} />)}
+                  {list.map((r) => <TeamCard key={r.team.id || r.team._id} row={r} onOpen={onSelectTeam} />)}
             </div>
       );
 
