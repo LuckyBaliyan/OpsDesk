@@ -23,9 +23,9 @@ export default function TeamsWorkloadChart({ rows, byStatus, onOpen }) {
                               <div>
                                     <h2 className="text-lg font-medium">Workload by team</h2>
                                     <p className="mt-1 min-h-5 text-sm text-muted-foreground">
-                                          {hovered
+                                          {/*hovered
                                                 ? `${hovered.team.name}: ${STATUSES.map((s) => `${STATUS_META[s].short} ${hovered.byStatus[s] || 0}`).join(' · ')}`
-                                                : 'Hover a bar for counts, click to open the team'}
+                                                : 'Hover a bar for counts, click to open the team'*/}
                                     </p>
                               </div>
 

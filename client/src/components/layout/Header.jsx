@@ -49,7 +49,7 @@ export default function Header({
                                     <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-red-500" />
                               )}
                         </Button>
-                        <UserAvatar name={user.name} email={user.email} className="ml-1 size-9" />
+                        <UserAvatar name={user?.name} email={user?.email} className="ml-1 size-9" />
                   </div>
             </header>
       );

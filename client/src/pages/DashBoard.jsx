@@ -3,11 +3,12 @@ import { useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { APPROVER_ROLES, PAGE_SIZE, WRITE_ROLES } from '@/lib/constants';
 import { isUnassignedUrgent } from '@/lib/helpers';
-import { MEMBERS, USERS, buildActivities } from '@/data/mockData';
 import { useGetUserTeamsQuery, useGetAllTeamsQuery, useGetTeamMembersQuery } from '@/stores/slices/teamApiSlice';
-import { useGetAllWorkItemsQuery } from '@/stores/slices/workItemsApiSlice';
+import { useGetAllWorkItemsQuery, useCreateWorkItemMutation, useUpdateWorkItemMutation } from '@/stores/slices/workItemsApiSlice';
+import { useGetWorkItemActivitiesQuery } from '@/stores/slices/activitiesApiSlice';
 import { selectCurrentUser } from '@/stores/slices/userSlice';
 import useDashboardData from '@/hooks/userDashBoardData';
+import { useSelector } from 'react-redux';
 
 import Sidebar from '@/components/layout/SideBar';
 import MobileDrawer from '@/components/layout/MobileDrawer';
@@ -24,10 +25,10 @@ import WorkloadCard from '@/components/dashboard/WorkloadCard';
 import RecentActivityCard from '@/components/dashboard/RecentActivityCard';
 import WorkItemsCard from '@/components/dashboard/WorkItemsCard';
 import TeamMembersCard from '@/components/dashboard/TeamMembersCard';
+import UsersView from '@/components/dashboard/UsersView';
 
 import CreateItemDialog from '@/components/dialogs/CreateItemDialog';
 import EditItemDialog from '@/components/dialogs/EditItemDialog';
-import { useSelector } from 'react-redux';
 
 export default function DashBoard() {
       const currentUser = useSelector(selectCurrentUser);
@@ -40,8 +41,8 @@ export default function DashBoard() {
 
       // Real items from API
       const allItems = useMemo(() => workItemsData?.data || workItemsData || [], [workItemsData]);
-      const [allActivities, setAllActivities] = useState(() => buildActivities([]));
 
+      // Merge user role into allTeams so TeamCard knows which teams the user belongs to
       const enrichedAllTeams = useMemo(() => {
             const userTeamRoleMap = new Map();
             teams.forEach((t) => {
@@ -89,13 +90,18 @@ export default function DashBoard() {
       const role = activeTeam?.role ?? null;
       const canWrite = WRITE_ROLES.includes(role);
       const isApprover = APPROVER_ROLES.includes(role);
-      const members = activeTeam ? MEMBERS[activeTeam.id] ?? [] : [];
+
+      // Fetch real members for active team from API (replaces MEMBERS mock)
+      const { data: membersRaw } = useGetTeamMembersQuery(activeTeamId, { skip: !activeTeamId });
+      const members = membersRaw?.members || membersRaw?.data || (Array.isArray(membersRaw) ? membersRaw : []);
 
       const teamItems = useMemo(
             () => (activeTeamId ? allItems.filter((i) => i.teamId === activeTeamId) : []),
             [allItems, activeTeamId]
       );
-      const { stats, chart, newItems, workload } = useDashboardData(teamItems, chartPriority);
+
+      // Pass real currentUserId to the hook instead of ME mock
+      const { stats, chart, newItems, workload } = useDashboardData(teamItems, chartPriority, currentUser?.id);
 
       const filtered = useMemo(() => {
             const q = search.trim().toLowerCase();
@@ -117,7 +123,14 @@ export default function DashBoard() {
       const items = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
       const selected = filtered.find((i) => i.id === selectedId) ?? items[0] ?? null;
-      const activities = selected ? (allActivities[selected.id] ?? []).slice(0, 7) : [];
+
+      // Fetch real activity logs for the selected work item from activities API
+      const { data: activitiesRaw } = useGetWorkItemActivitiesQuery(
+            { workItemId: selected?.id },
+            { skip: !selected?.id }
+      );
+      // First 7 activities shown in the Recent Activity card
+      const activities = (activitiesRaw || []).slice(0, 7);
 
       const resetFilters = () => {
             setView('all');
@@ -157,6 +170,38 @@ export default function DashBoard() {
             setDark(next);
       };
 
+      // RTK Query mutations for creating and updating work items
+      const [createWorkItem] = useCreateWorkItemMutation();
+      const [updateWorkItem] = useUpdateWorkItemMutation();
+
+      // Handler for CreateItemDialog — calls POST /work-items API with active team id
+      const handleCreate = async (formData) => {
+            if (!activeTeamId) return;
+            try {
+                  await createWorkItem({
+                        ...formData,
+                        teamId: activeTeamId,
+                  }).unwrap();
+            } catch (err) {
+                  console.error('Create work item failed:', err);
+            }
+      };
+
+      // Handler for EditItemDialog — calls PATCH /work-items/:id API with optimistic lock version
+      const handleSave = async (id, formData) => {
+            const currentItem = allItems.find((i) => i.id === id);
+            try {
+                  await updateWorkItem({
+                        id,
+                        ...formData,
+                        // Send current version so server can detect concurrent edits
+                        version: currentItem?.version,
+                  }).unwrap();
+            } catch (err) {
+                  console.error('Update work item failed:', err);
+            }
+      };
+
       const sidebarProps = {
             teams: teams,
             activeTeamId,
@@ -191,7 +236,6 @@ export default function DashBoard() {
                                     <AllTeamsOverview
                                           teams={enrichedAllTeams}
                                           items={allItems}
-                                          members={MEMBERS}
                                           search={search}
                                           user={currentUser}
                                           onSelectTeam={selectTeam}
@@ -200,56 +244,68 @@ export default function DashBoard() {
                                     <>
                                           <TeamBanner team={activeTeam} canWrite={canWrite} onBack={goToOverview} />
 
-                                          <section className="grid gap-6 lg:grid-cols-4">
-                                                <OperationsCard activeTeam={activeTeam} stats={stats} onGoTo={goTo} />
-                                                <ApprovalCard isApprover={isApprover} stats={stats} onGoTo={goTo} />
-                                                <TotalItemsCard stats={stats} onGoTo={goTo} />
-                                          </section>
-
-                                          <section className="grid gap-6 lg:grid-cols-3">
-                                                <StatusOverviewCard
-                                                      chart={chart}
-                                                      chartPriority={chartPriority}
-                                                      onChartPriorityChange={setChartPriority}
-                                                      onGoTo={goTo}
-                                                />
-                                                <div className="flex flex-col gap-6">
-                                                      <NewItemsCard newItems={newItems} />
-                                                      <WorkloadCard workload={workload} />
-                                                </div>
-                                          </section>
-
-                                          <section ref={tableRef} className="grid scroll-mt-24 gap-6 lg:grid-cols-3">
-                                                <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} />
-                                                <WorkItemsCard
+                                          {/* ── Users view (Admin-only management tab) ── */}
+                                          {view === 'users' ? (
+                                                <UsersView
                                                       activeTeam={activeTeam}
-                                                      total={filtered.length}
-                                                      items={items}
-                                                      selected={selected}
-                                                      view={view}
-                                                      onViewChange={setView}
-                                                      statusFilter={statusFilter}
-                                                      onStatusFilterChange={setStatusFilter}
-                                                      priorityFilter={priorityFilter}
-                                                      onPriorityFilterChange={setPriorityFilter}
-                                                      page={page}
-                                                      totalPages={totalPages}
-                                                      onPageChange={setPage}
-                                                      onSelect={setSelectedId}
-                                                      onOpenItem={setEditItem}
+                                                      members={members}
+                                                      isAdmin={role === 'Admin'}
+                                                      currentUserId={currentUser?.id}
                                                 />
-                                          </section>
+                                          ) : (
+                                                <>
+                                                      <section className="grid gap-6 lg:grid-cols-4">
+                                                            <OperationsCard activeTeam={activeTeam} stats={stats} onGoTo={goTo} />
+                                                            <ApprovalCard isApprover={isApprover} stats={stats} onGoTo={goTo} />
+                                                            <TotalItemsCard stats={stats} onGoTo={goTo} />
+                                                      </section>
 
-                                          <section>
-                                                <TeamMembersCard members={members} activeTeam={activeTeam} />
-                                          </section>
+                                                      <section className="grid gap-6 lg:grid-cols-3">
+                                                            <StatusOverviewCard
+                                                                  chart={chart}
+                                                                  chartPriority={chartPriority}
+                                                                  onChartPriorityChange={setChartPriority}
+                                                                  onGoTo={goTo}
+                                                            />
+                                                            <div className="flex flex-col gap-6">
+                                                                  <NewItemsCard newItems={newItems} />
+                                                                  <WorkloadCard workload={workload} />
+                                                            </div>
+                                                      </section>
+
+                                                      <section ref={tableRef} className="grid scroll-mt-24 gap-6 lg:grid-cols-3">
+                                                            <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} />
+                                                            <WorkItemsCard
+                                                                  activeTeam={activeTeam}
+                                                                  total={filtered.length}
+                                                                  items={items}
+                                                                  selected={selected}
+                                                                  view={view}
+                                                                  onViewChange={setView}
+                                                                  statusFilter={statusFilter}
+                                                                  onStatusFilterChange={setStatusFilter}
+                                                                  priorityFilter={priorityFilter}
+                                                                  onPriorityFilterChange={setPriorityFilter}
+                                                                  page={page}
+                                                                  totalPages={totalPages}
+                                                                  onPageChange={setPage}
+                                                                  onSelect={setSelectedId}
+                                                                  onOpenItem={setEditItem}
+                                                            />
+                                                      </section>
+
+                                                      <section>
+                                                            <TeamMembersCard members={members} activeTeam={activeTeam} />
+                                                      </section>
+                                                </>
+                                          )}
                                     </>
                               )}
                         </main>
                   </div>
 
                   {createOpen && activeTeam && (
-                        <CreateItemDialog members={members} onClose={() => setCreateOpen(false)} onCreate={() => { }} />
+                        <CreateItemDialog members={members} onClose={() => setCreateOpen(false)} onCreate={handleCreate} />
                   )}
 
                   {editItem && activeTeam && (
@@ -260,7 +316,7 @@ export default function DashBoard() {
                               meId={currentUser?.id}
                               canWrite={canWrite}
                               onClose={() => setEditItem(null)}
-                              onSave={() => { }}
+                              onSave={handleSave}
                         />
                   )}
             </div>

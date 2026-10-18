@@ -1,12 +1,13 @@
-import { Layers, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, TriangleAlert, UserCheck, Users } from 'lucide-react';
+import { Layers, LayoutDashboard, LayoutGrid, LogOut, Users, Users2 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/shared/UserAvatar';
 import NavLabel from './NavLabel';
 import NavItem from './NavItem';
-import { useGetTeamMembersQuery, useGetUserTeamsQuery } from '@/stores/slices/teamApiSlice';
+import { useGetUserTeamsQuery } from '@/stores/slices/teamApiSlice';
 import { logout, selectCurrentUser } from '@/stores/slices/userSlice';
+import { useNavigate } from 'react-router-dom';
 
 function TeamButton({ team, active, onClick }) {
       return (
@@ -47,6 +48,8 @@ export default function SidebarContent({
       const myTeams = teams.filter((t) => t.role);
       //const otherTeams = teams.filter((t) => !t.role);
 
+      const navigate = useNavigate();
+
       const pickView = (v) => {
             onSelectView(v);
             onNavigate?.();
@@ -62,6 +65,7 @@ export default function SidebarContent({
 
       const handleSignOut = () => {
             dispatch(logout());
+            navigate("/login");
       };
 
       return (
@@ -74,19 +78,22 @@ export default function SidebarContent({
                   </div>
 
                   <nav className="flex-1 overflow-y-auto px-4 pb-4">
+                        {/* ── Always visible ── */}
                         <NavLabel>Dashboard</NavLabel>
                         <div className="space-y-1">
                               <NavItem icon={LayoutGrid} active={!inTeam} onClick={pickOverview}>All teams</NavItem>
-
-                              {inTeam && (
-                                    <>
-                                          <NavItem icon={LayoutDashboard} active={view === 'all'} onClick={() => pickView('all')}>Team overview</NavItem>
-                                          <NavItem icon={UserCheck} active={view === 'mine'} onClick={() => pickView('mine')}>Assigned to me</NavItem>
-                                          <NavItem icon={TriangleAlert} active={view === 'urgent'} onClick={() => pickView('urgent')}>Unassigned urgent</NavItem>
-                                          <NavItem icon={ShieldCheck} active={view === 'approval'} onClick={() => pickView('approval')}>Awaiting approval</NavItem>
-                                    </>
-                              )}
                         </div>
+
+                        {/* ── Team-specific nav: only when a team is selected ── */}
+                        {inTeam && (
+                              <>
+                                    <NavLabel>Team Dashboard</NavLabel>
+                                    <div className="space-y-1">
+                                          <NavItem icon={LayoutDashboard} active={view === 'all'} onClick={() => pickView('all')}>Team overview</NavItem>
+                                          <NavItem icon={Users2} active={view === 'users'} onClick={() => pickView('users')}>Users</NavItem>
+                                    </div>
+                              </>
+                        )}
 
                         {isLoading ? (
                               <div className="px-4 py-2 text-xs text-muted-foreground">Loading teams...</div>

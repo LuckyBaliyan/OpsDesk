@@ -5,12 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRegisterUserMutation } from '@/stores/slices/authSlice';
 import { FullPageLoader, Loader } from '@/components/ui/Loader';
-import { setCredentials } from '@/stores/slices/userSlice';
-import { useDispatch } from 'react-redux';
+
 
 export default function Register() {
       const navigate = useNavigate();
-      const dispatch = useDispatch();
+
       const [formData, setFormData] = useState({ name: '', email: '', password: '' });
       const [registerUser, { isLoading, error }] = useRegisterUserMutation();
 
@@ -21,9 +20,9 @@ export default function Register() {
       const handleSubmit = async (e) => {
             e.preventDefault();
             try {
-                  const response = await registerUser(formData).unwrap();
-                  dispatch(setCredentials({ user: response.user, token: response.token }));
-                  navigate("/dashboard");
+                  // Server returns { message, user } — no token on register, so navigate to login
+                  await registerUser(formData).unwrap();
+                  navigate("/login");
             } catch (error) {
                   console.log("Error registering:", error);
             }

@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PRIORITIES, STATUSES, STATUS_META } from '@/lib/constants';
 import { fmtDate, humanize } from '@/lib/helpers';
-import { USERS } from '@/data/mockData';
 
 export default function EditItemDialog({ item, members, meId, canWrite, onClose, onSave }) {
       const [form, setForm] = useState({
@@ -23,13 +22,16 @@ export default function EditItemDialog({ item, members, meId, canWrite, onClose,
             onClose();
       };
 
+      // Use real createdBy object from API (server includes it via select on createdBy)
+      const creatorName = item.createdBy?.name || item.createdBy?.email || 'Unknown';
+
       return (
             <Dialog open onOpenChange={(o) => !o && onClose()}>
                   <DialogContent className="sm:max-w-lg">
                         <DialogHeader>
                               <DialogTitle className="pr-6">{item.title}</DialogTitle>
                               <DialogDescription>
-                                    {humanize(item.type)} · created {fmtDate(item.createdAt)} by {USERS[item.createdById]?.name} · v{item.version}
+                                    {humanize(item.type)} · created {fmtDate(item.createdAt)} by {creatorName} · v{item.version}
                               </DialogDescription>
                         </DialogHeader>
 
@@ -89,3 +91,4 @@ export default function EditItemDialog({ item, members, meId, canWrite, onClose,
             </Dialog>
       );
 }
+

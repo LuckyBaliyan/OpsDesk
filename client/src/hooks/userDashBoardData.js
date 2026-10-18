@@ -2,21 +2,22 @@ import { useMemo } from 'react';
 
 import { DAY, STATUSES, STATUS_META } from '@/lib/constants';
 import { isActive, isUnassignedUrgent } from '@/lib/helpers';
-import { ME } from '@/data/mockData';
 
-/* All derived numbers for the stat cards + charts of the selected team */
-export default function useDashboardData(teamItems, chartPriority) {
+/* All derived numbers for the stat cards + charts of the selected team.
+   currentUserId — real logged-in user's id from Redux store, replaces the old ME mock */
+export default function useDashboardData(teamItems, chartPriority, currentUserId) {
       const stats = useMemo(() => {
             const total = teamItems.length;
             const awaiting = teamItems.filter((i) => i.status === 'AwaitingApproval').length;
             return {
                   total,
                   active: teamItems.filter(isActive).length,
-                  mine: teamItems.filter((i) => i.assigneeId === ME.id).length,
+                  // "mine" = items where the logged-in user is the assignee
+                  mine: teamItems.filter((i) => currentUserId && i.assigneeId === currentUserId).length,
                   urgentUnassigned: teamItems.filter(isUnassignedUrgent).length,
                   awaiting,
             };
-      }, [teamItems]);
+      }, [teamItems, currentUserId]);
 
       // bar chart (Revenue Updates slot)
       const chart = useMemo(() => {
@@ -26,13 +27,14 @@ export default function useDashboardData(teamItems, chartPriority) {
                         key: s,
                         label: STATUS_META[s].short,
                         team: rows.filter((i) => i.status === s).length,
-                        mine: rows.filter((i) => i.status === s && i.assigneeId === ME.id).length,
+                        // mine = items assigned to the logged-in user with this status
+                        mine: rows.filter((i) => i.status === s && currentUserId && i.assigneeId === currentUserId).length,
                   })),
                   active: rows.filter(isActive).length,
                   team: rows.length,
-                  mine: rows.filter((i) => i.assigneeId === ME.id).length,
+                  mine: rows.filter((i) => currentUserId && i.assigneeId === currentUserId).length,
             };
-      }, [teamItems, chartPriority]);
+      }, [teamItems, chartPriority, currentUserId]);
 
       // new items per day (Monthly earnings slot)
       const newItems = useMemo(() => {
@@ -51,11 +53,11 @@ export default function useDashboardData(teamItems, chartPriority) {
       // workload donut (Yearly Backup slot)
       const workload = useMemo(() => {
             const act = teamItems.filter(isActive);
-            const mine = act.filter((i) => i.assigneeId === ME.id).length;
+            const mine = currentUserId ? act.filter((i) => i.assigneeId === currentUserId).length : 0;
             const unassigned = act.filter((i) => !i.assigneeId).length;
             const others = act.length - mine - unassigned;
             return { mine, others, unassigned, assigned: mine + others, total: act.length };
-      }, [teamItems]);
+      }, [teamItems, currentUserId]);
 
       return { stats, chart, newItems, workload };
-}
+}

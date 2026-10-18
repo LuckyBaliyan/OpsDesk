@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { CARD, PRIORITIES, STATUSES, STATUS_META, VIEWS } from '@/lib/constants';
 import { fmtDate, humanize } from '@/lib/helpers';
-import { USERS } from '@/data/mockData';
 import UserAvatar from '@/components/shared/UserAvatar';
 import StatusBadge from '@/components/shared/StatusBadge';
 import PriorityBadge from '@/components/shared/PriorityBadge';
@@ -77,7 +77,7 @@ export default function WorkItemsCard({
                                           <TableHead>Status</TableHead>
                                           <TableHead>Priority</TableHead>
                                           <TableHead>Assignee</TableHead>
-                                          <TableHead className="text-right">Action</TableHead>
+                                          <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -90,7 +90,8 @@ export default function WorkItemsCard({
                                     )}
 
                                     {items.map((item) => {
-                                          const assignee = item.assigneeId ? USERS[item.assigneeId] : null;
+                                          // Use real assignee data returned by the API (include: { assignee: true })
+                                          const assignee = item.assignee || null;
                                           return (
                                                 <TableRow
                                                       key={item.id}
@@ -116,19 +117,31 @@ export default function WorkItemsCard({
                                                             )}
                                                       </TableCell>
                                                       <TableCell className="text-right">
-                                                            <Button
-                                                                  variant="ghost"
-                                                                  size="icon-sm"
-                                                                  className="cursor-pointer"
-                                                                  aria-label={`Open ${item.title}`}
-                                                                  onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onSelect(item.id);
-                                                                        onOpenItem(item);
-                                                                  }}
-                                                            >
-                                                                  <Eye className="size-4" />
-                                                            </Button>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                  {/* Eye = quick-edit dialog (original behavior) */}
+                                                                  <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="size-8 cursor-pointer"
+                                                                        aria-label={`Quick-edit ${item.title}`}
+                                                                        onClick={(e) => {
+                                                                              e.stopPropagation();
+                                                                              onSelect(item.id);
+                                                                              onOpenItem(item);
+                                                                        }}
+                                                                  >
+                                                                        <Eye className="size-4" />
+                                                                  </Button>
+                                                                  {/* ExternalLink = full detail page */}
+                                                                  <Link
+                                                                        to={`/work-items/${item.id}`}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                                                                        aria-label={`View full details of ${item.title}`}
+                                                                  >
+                                                                        <ExternalLink className="size-4" />
+                                                                  </Link>
+                                                            </div>
                                                       </TableCell>
                                                 </TableRow>
                                           );
