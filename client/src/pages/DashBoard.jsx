@@ -37,6 +37,30 @@ export default function DashBoard() {
       const allTeams = allTeamsData?.teams || allTeamsData || teams;
 
 
+      // Enrich allTeams with role and myRole properties from user's joined teams
+      const enrichedAllTeams = useMemo(() => {
+            // Map for quick lookup of user's roles in teams
+            const userTeamRoleMap = new Map();
+            teams.forEach((t) => {
+                  const teamId = t.id || t._id;
+                  const userRole = t.role || t.myRole;
+                  if (teamId && userRole) {
+                        userTeamRoleMap.set(teamId, userRole);
+                  }
+            });
+
+            return allTeams.map((team) => {
+                  const teamId = team.id || team._id;
+                  const assignedRole = userTeamRoleMap.get(teamId) || team.role || team.myRole || null;
+                  return {
+                        ...team,
+                        role: assignedRole,
+                        myRole: assignedRole, // standardizing both fields so old UI works seamlessly
+                  };
+            });
+      }, [allTeams, teams]);
+
+
       const [collapsed, setCollapsed] = useState(false); // desktop sidebar
       const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
       const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -224,7 +248,7 @@ export default function DashBoard() {
                               {!activeTeam ? (
                                     /* ---------- ALL TEAMS ---------- */
                                     <AllTeamsOverview
-                                          teams={allTeams}
+                                          teams={enrichedAllTeams}
                                           items={allItems}
                                           members={MEMBERS}
                                           search={search}

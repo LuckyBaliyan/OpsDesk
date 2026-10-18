@@ -45,7 +45,7 @@ export default function SidebarContent({
 
       const inTeam = activeTeamId !== null;
       const myTeams = teams.filter((t) => t.role);
-      const otherTeams = teams.filter((t) => !t.role);
+      //const otherTeams = teams.filter((t) => !t.role);
 
       const pickView = (v) => {
             onSelectView(v);
@@ -103,7 +103,7 @@ export default function SidebarContent({
                                           </>
                                     )}
 
-                                    {otherTeams.length > 0 && (
+                                    {/*otherTeams.length > 0 && (
                                           <>
                                                 <NavLabel>Other teams</NavLabel>
                                                 <div className="space-y-1">
@@ -112,7 +112,7 @@ export default function SidebarContent({
                                                       ))}
                                                 </div>
                                           </>
-                                    )}
+                                    )*/}
                               </>
                         )}
                   </nav>

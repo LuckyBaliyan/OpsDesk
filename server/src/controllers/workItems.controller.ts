@@ -262,3 +262,17 @@ export const deleteWorkItem = async (req: AuthenticatedRequest, res: Response): 
             res.status(500).json({ error: 'Failed to delete work item' });
       }
 };
+
+// 6. Get all work items
+export const getAllWorkItems = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const items = await prisma.workItem.findMany({
+                  include: { assignee: true, createdBy: true },
+                  orderBy: { createdAt: 'desc' }
+            });
+            res.json({ success: true, data: items });
+      } catch (error) {
+            console.error('Get All Work Items Error:', error);
+            res.status(500).json({ error: 'Failed to fetch all work items' });
+      }
+};
