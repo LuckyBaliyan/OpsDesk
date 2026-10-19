@@ -5,8 +5,33 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CARD } from '@/lib/constants';
 import Chip from '@/components/shared/Chip';
 
-/* Top strip inside a team: back to "All teams" + who you are in this team */
-export default function TeamBanner({ team, canWrite, onBack }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders a loading skeleton placeholder for the team header banner matching the current theme
+export function TeamBannerSkeleton({ onBack }) {
+      return (
+            <Card className={CARD}>
+                  <CardContent className="flex flex-wrap items-center gap-4 px-6 py-4">
+                        <Button variant="outline" size="sm" onClick={onBack} className="cursor-pointer">
+                              <ArrowLeft className="size-4" /> All teams
+                        </Button>
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                    <Skeleton className="h-6 w-36 rounded-md" />
+                                    <Skeleton className="h-5 w-20 rounded-sm" />
+                              </div>
+                              <Skeleton className="h-4 w-64 rounded-sm" />
+                        </div>
+                  </CardContent>
+            </Card>
+      );
+}
+
+// Renders the team header navigation banner with team details, user role chip, and back-to-all-teams button
+export default function TeamBanner({ team, canWrite, onBack, isLoading = false }) {
+      if (isLoading || !team) {
+            return <TeamBannerSkeleton onBack={onBack} />;
+      }
       return (
             <Card className={CARD}>
                   <CardContent className="flex flex-wrap items-center gap-4 px-6 py-4">

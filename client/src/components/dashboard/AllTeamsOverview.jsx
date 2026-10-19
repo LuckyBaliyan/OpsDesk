@@ -9,26 +9,35 @@ import { isActive, isUnassignedUrgent } from '@/lib/helpers';
 import Chip from '@/components/shared/Chip';
 import IconCircle from '@/components/shared/IconCircle';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import LiveClockCard from './LiveClockCard';
 import TeamsWorkloadChart from './TeamsWorkloadChart';
 import StatusMixCard from './StatusMixCard';
 import NewItemsCard from './NewItemsCard';
 import PriorityMixCard from './PriorityMixCard';
 import NeedsAttentionCard from './NeedsAttentionCard';
-import TeamCard from './TeamCard';
+import TeamCard, { TeamCardSkeleton } from './TeamCard';
 
-function OrgStat({ title, value, chip, tone, icon }) {
+// Renders an individual organization statistic metric card with support for a pulsing skeleton loading state
+function OrgStat({ title, value, chip, tone, icon, isLoading = false }) {
       return (
             <Card className={CARD}>
                   <CardContent className="flex items-start justify-between gap-3 p-4">
-                        <div>
+                        <div className="space-y-1">
                               <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-                              <div className="mt-1.5 flex items-center gap-2">
-                                    <span className="text-2xl font-semibold tracking-tight">{value}</span>
-                                    <Chip tone={tone}>{chip}</Chip>
-                              </div>
+                              {isLoading ? (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                          <Skeleton className="h-7 w-12 rounded-md" />
+                                          <Skeleton className="h-5 w-16 rounded-sm" />
+                                    </div>
+                              ) : (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                          <span className="text-2xl font-semibold tracking-tight">{value}</span>
+                                          <Chip tone={tone}>{chip}</Chip>
+                                    </div>
+                              )}
                         </div>
-                        <IconCircle icon={icon} className="size-9" />
+                        <IconCircle icon={icon} className="size-9 shrink-0" />
                   </CardContent>
             </Card>
       );
@@ -41,8 +50,8 @@ const SORTS = {
       name: (a, b) => a.team.name.localeCompare(b.team.name),
 };
 
-/* "All teams" page: clock, org-wide numbers, charts, and a card per team */
-export default function AllTeamsOverview({ teams, items, search, user, onSelectTeam }) {
+// Renders the organization-wide overview dashboard including the live clock, aggregate metrics, workload and priority charts, and team cards
+export default function AllTeamsOverview({ teams = [], items = [], search = '', user, onSelectTeam, isLoading = false }) {
       const [scope, setScope] = useState('all'); // all | mine | others
       const [sort, setSort] = useState('default');
 
@@ -120,6 +129,7 @@ export default function AllTeamsOverview({ teams, items, search, user, onSelectT
       const mine = visible.filter((r) => r.team.myRole);
       const others = visible.filter((r) => !r.team.myRole);
 
+      // Renders a responsive grid of team cards
       const grid = (list) => (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {list.map((r) => <TeamCard key={r.team.id || r.team._id} row={r} onOpen={onSelectTeam} />)}
@@ -130,32 +140,33 @@ export default function AllTeamsOverview({ teams, items, search, user, onSelectT
             <div className="space-y-4">
                   {/* ROW 1: clock + org numbers */}
                   <section className="grid gap-4 lg:grid-cols-4">
-                        <LiveClockCard user={user} org={data.org} />
+                        <LiveClockCard user={user} org={data.org} isLoading={isLoading} />
                         <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
-                              <OrgStat title="Teams" value={data.org.teams} chip={`${data.org.mine} yours`} icon={Users} />
-                              <OrgStat title="Active items" value={data.org.active} chip={`${data.org.total} total`} icon={Layers} />
+                              <OrgStat title="Teams" value={data.org.teams} chip={`${data.org.mine} yours`} icon={Users} isLoading={isLoading} />
+                              <OrgStat title="Active items" value={data.org.active} chip={`${data.org.total} total`} icon={Layers} isLoading={isLoading} />
                               <OrgStat
                                     title="Unassigned urgent"
                                     value={data.org.urgent}
                                     chip={data.org.urgent > 0 ? 'Action' : 'Clear'}
                                     tone={data.org.urgent > 0 ? 'down' : 'up'}
                                     icon={TriangleAlert}
+                                    isLoading={isLoading}
                               />
-                              <OrgStat title="Awaiting approval" value={data.org.awaiting} chip="all teams" icon={ShieldCheck} />
+                              <OrgStat title="Awaiting approval" value={data.org.awaiting} chip="all teams" icon={ShieldCheck} isLoading={isLoading} />
                         </div>
                   </section>
 
                   {/* ROW 2: team workload + status mix */}
                   <section className="grid gap-4 lg:grid-cols-3">
-                        <TeamsWorkloadChart rows={data.rows} byStatus={data.byStatus} onOpen={onSelectTeam} />
-                        <StatusMixCard byStatus={data.byStatus} total={data.org.total} />
+                        <TeamsWorkloadChart rows={data.rows} byStatus={data.byStatus} onOpen={onSelectTeam} isLoading={isLoading} />
+                        <StatusMixCard byStatus={data.byStatus} total={data.org.total} isLoading={isLoading} />
                   </section>
 
                   {/* ROW 3: trend + priority + attention list */}
                   <section className="grid gap-4 lg:grid-cols-3">
-                        <NewItemsCard newItems={data.newItems} />
-                        <PriorityMixCard byPriority={data.byPriority} total={data.activeCount} />
-                        <NeedsAttentionCard items={data.urgentItems.slice(0, 5)} total={data.urgentItems.length} onOpen={onSelectTeam} />
+                        <NewItemsCard newItems={data.newItems} isLoading={isLoading} />
+                        <PriorityMixCard byPriority={data.byPriority} total={data.activeCount} isLoading={isLoading} />
+                        <NeedsAttentionCard items={data.urgentItems.slice(0, 5)} total={data.urgentItems.length} onOpen={onSelectTeam} isLoading={isLoading} />
                   </section>
 
                   {/* ROW 4: teams */}
@@ -182,24 +193,34 @@ export default function AllTeamsOverview({ teams, items, search, user, onSelectT
                               </div>
                         </div>
 
-                        {scope !== 'others' && mine.length > 0 && (
-                              <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-muted-foreground">My teams</h3>
-                                    {grid(mine)}
+                        {isLoading ? (
+                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                                          <TeamCardSkeleton key={i} />
+                                    ))}
                               </div>
-                        )}
+                        ) : (
+                              <>
+                                    {scope !== 'others' && mine.length > 0 && (
+                                          <div className="space-y-3">
+                                                <h3 className="text-sm font-medium text-muted-foreground">My teams</h3>
+                                                {grid(mine)}
+                                          </div>
+                                    )}
 
-                        {scope !== 'mine' && others.length > 0 && (
-                              <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-muted-foreground">
-                                          Other teams <span className="font-normal">· You can view these teams but not edit them.</span>
-                                    </h3>
-                                    {grid(others)}
-                              </div>
-                        )}
+                                    {scope !== 'mine' && others.length > 0 && (
+                                          <div className="space-y-3">
+                                                <h3 className="text-sm font-medium text-muted-foreground">
+                                                      Other teams <span className="font-normal">· You can view these teams but not edit them.</span>
+                                                </h3>
+                                                {grid(others)}
+                                          </div>
+                                    )}
 
-                        {visible.length === 0 && (
-                              <p className="py-10 text-center text-sm text-muted-foreground">No teams match "{search}".</p>
+                                    {visible.length === 0 && (
+                                          <p className="py-10 text-center text-sm text-muted-foreground">No teams match "{search}".</p>
+                                    )}
+                              </>
                         )}
                   </section>
             </div>

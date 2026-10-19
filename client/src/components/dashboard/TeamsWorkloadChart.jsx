@@ -5,14 +5,56 @@ import { cn } from '@/lib/utils';
 import { CARD, STATUSES, STATUS_META } from '@/lib/constants';
 import { STATUS_COLORS } from '@/lib/chartColors';
 
-/* Stacked bar per team (by status). Legend toggles statuses, hover shows counts, click opens the team. */
-export default function TeamsWorkloadChart({ rows, byStatus, onOpen }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the team workload horizontal stacked bar chart with interactive status toggles and a loading skeleton state
+export default function TeamsWorkloadChart({ rows = [], byStatus = {}, onOpen, isLoading = false }) {
       const [hidden, setHidden] = useState([]);
       const [hover, setHover] = useState(null);
 
+      if (isLoading) {
+            return (
+                  <Card className={cn(CARD, 'lg:col-span-2')}>
+                        <CardContent className="p-5">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="space-y-1.5">
+                                          <h2 className="text-lg font-medium">Workload by team</h2>
+                                          <Skeleton className="h-4 w-44 rounded-sm" />
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                          {STATUSES.map((s) => (
+                                                <Skeleton key={s} className="h-6 w-16 rounded-md" />
+                                          ))}
+                                    </div>
+                              </div>
+
+                              <div className="mt-5 space-y-3">
+                                    {[75, 45, 90, 60, 30].map((widthPct, idx) => (
+                                          <div key={idx} className="flex items-center gap-3 px-2 py-1.5">
+                                                <Skeleton className="h-4 w-28 shrink-0 rounded-sm" />
+                                                <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-muted/60">
+                                                      <Skeleton
+                                                            className="h-full rounded-full bg-muted-foreground/20"
+                                                            style={{ width: `${widthPct}%` }}
+                                                      />
+                                                </div>
+                                                <Skeleton className="h-4 w-6 shrink-0 rounded-sm" />
+                                          </div>
+                                    ))}
+                              </div>
+                        </CardContent>
+                  </Card>
+            );
+      }
+
       const shown = STATUSES.filter((s) => !hidden.includes(s));
+
+      // Toggles visibility of a specific workflow status across all team workload bars
       const toggle = (s) => setHidden((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]));
+
+      // Computes total count of items across all currently visible statuses for a given team row
       const sumShown = (r) => shown.reduce((a, s) => a + (r.byStatus[s] || 0), 0);
+
       const max = Math.max(1, ...rows.map(sumShown));
       const hovered = rows.find((r) => r.team.id === hover);
 

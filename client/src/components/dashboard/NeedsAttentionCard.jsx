@@ -5,9 +5,37 @@ import { CARD } from '@/lib/constants';
 import { timeAgo } from '@/lib/helpers';
 import Chip from '@/components/shared/Chip';
 
-/* Unassigned urgent items from every team.
-   Clicking one calls onOpen(teamId) which navigates to that team's overview. */
-export default function NeedsAttentionCard({ items, total, onOpen }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the unassigned urgent work items list across all teams with a loading skeleton state
+export default function NeedsAttentionCard({ items = [], total = 0, onOpen, isLoading = false }) {
+      if (isLoading) {
+            return (
+                  <Card className={CARD}>
+                        <CardContent className="p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1.5">
+                                          <h2 className="text-lg font-medium">Needs attention</h2>
+                                          <p className="text-sm text-muted-foreground">Unassigned urgent</p>
+                                    </div>
+                                    <Skeleton className="h-5 w-14 rounded-sm" />
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                          <div key={n} className="flex items-center gap-3 px-2 py-2">
+                                                <Skeleton className="size-2 shrink-0 rounded-full" />
+                                                <div className="min-w-0 flex-1 space-y-1.5">
+                                                      <Skeleton className="h-4 w-3/4 rounded-sm" />
+                                                      <Skeleton className="h-3 w-1/2 rounded-sm" />
+                                                </div>
+                                          </div>
+                                    ))}
+                              </div>
+                        </CardContent>
+                  </Card>
+            );
+      }
       return (
             <Card className={CARD}>
                   <CardContent className="p-5">

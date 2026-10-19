@@ -3,8 +3,32 @@ import { CARD } from '@/lib/constants';
 import Chip from '@/components/shared/Chip';
 import UserAvatar from '@/components/shared/UserAvatar';
 
-/* Sales by Countries -> Team Members */
-export default function TeamMembersCard({ members, activeTeam }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the team membership card listing members and roles with loading skeleton support
+export default function TeamMembersCard({ members = [], activeTeam, isLoading = false }) {
+      if (isLoading) {
+            return (
+                  <Card className={CARD}>
+                        <CardHeader className="gap-1 px-6 pt-6 pb-0">
+                              <CardTitle className="text-lg font-medium">Team Members</CardTitle>
+                              <Skeleton className="h-4 w-36 rounded-sm" />
+                        </CardHeader>
+                        <CardContent className="grid gap-4 p-6 sm:grid-cols-2 xl:grid-cols-4">
+                              {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="flex items-center gap-3 rounded-lg border border-border p-4">
+                                          <Skeleton className="size-10 rounded-full shrink-0" />
+                                          <div className="min-w-0 flex-1 space-y-1.5">
+                                                <Skeleton className="h-4 w-24 rounded-sm" />
+                                                <Skeleton className="h-3 w-32 rounded-sm" />
+                                          </div>
+                                          <Skeleton className="h-5 w-14 rounded-sm shrink-0" />
+                                    </div>
+                              ))}
+                        </CardContent>
+                  </Card>
+            );
+      }
       return (
             <Card className={CARD}>
                   <CardHeader className="gap-1 px-6 pt-6 pb-0">

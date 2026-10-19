@@ -3,8 +3,32 @@ import { CARD, PRIORITIES } from '@/lib/constants';
 import { PRIORITY_COLORS } from '@/lib/chartColors';
 import { pctOf } from '@/lib/helpers';
 
-/* Priority split of the active items across all teams */
-export default function PriorityMixCard({ byPriority, total }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the active work items breakdown by priority with progress bars and loading skeleton state
+export default function PriorityMixCard({ byPriority = {}, total = 0, isLoading = false }) {
+      if (isLoading) {
+            return (
+                  <Card className={CARD}>
+                        <CardContent className="p-5">
+                              <h2 className="text-lg font-medium">Priority mix</h2>
+                              <p className="mt-1 text-sm text-muted-foreground">Active items, all teams</p>
+
+                              <div className="mt-5 space-y-4">
+                                    {['Urgent', 'High', 'Medium', 'Low'].map((p) => (
+                                          <div key={p}>
+                                                <div className="mb-1.5 flex items-center justify-between text-sm">
+                                                      <span className="text-muted-foreground">{p}</span>
+                                                      <Skeleton className="h-4 w-6 rounded-sm" />
+                                                </div>
+                                                <Skeleton className="h-2 w-full rounded-full" />
+                                          </div>
+                                    ))}
+                              </div>
+                        </CardContent>
+                  </Card>
+            );
+      }
       return (
             <Card className={CARD}>
                   <CardContent className="p-5">

@@ -30,11 +30,15 @@ import UsersView from '@/components/dashboard/UsersView';
 import CreateItemDialog from '@/components/dialogs/CreateItemDialog';
 import EditItemDialog from '@/components/dialogs/EditItemDialog';
 
+// Main dashboard container managing team views, work item filters, queries, and modal dialogs
 export default function DashBoard() {
       const currentUser = useSelector(selectCurrentUser);
-      const { data: userTeamsData } = useGetUserTeamsQuery(currentUser?.id);
-      const { data: allTeamsData } = useGetAllTeamsQuery();
-      const { data: workItemsData } = useGetAllWorkItemsQuery();
+      const { data: userTeamsData, isLoading: isUserTeamsLoading } = useGetUserTeamsQuery(currentUser?.id);
+      const { data: allTeamsData, isLoading: isAllTeamsLoading } = useGetAllTeamsQuery();
+      const { data: workItemsData, isLoading: isWorkItemsLoading } = useGetAllWorkItemsQuery();
+
+      // Combined loading flag for initial server fetch across teams and work items
+      const isDashboardLoading = (isAllTeamsLoading || isWorkItemsLoading) && (!allTeamsData || !workItemsData);
 
       const teams = userTeamsData?.teams || userTeamsData || [];
       const allTeams = allTeamsData?.teams || allTeamsData || teams;
@@ -80,6 +84,8 @@ export default function DashBoard() {
       const queryKey = [activeTeamId, view, statusFilter, priorityFilter, search].join('|');
       const [pageState, setPageState] = useState({ key: '', page: 1 });
       const requestedPage = pageState.key === queryKey ? pageState.page : 1;
+
+      // Updates the current paginated page state matching queryKey
       const setPage = (p) => setPageState({ key: queryKey, page: p });
 
       const [selectedId, setSelectedId] = useState(null);
@@ -95,7 +101,7 @@ export default function DashBoard() {
       const isApprover = APPROVER_ROLES.includes(role);
 
       // Fetch team members only when user is an actual member — backend returns 403 otherwise
-      const { data: membersRaw } = useGetTeamMembersQuery(activeTeamId, { skip: !activeTeamId || !isMember });
+      const { data: membersRaw, isLoading: isMembersLoading } = useGetTeamMembersQuery(activeTeamId, { skip: !activeTeamId || !isMember });
       const members = membersRaw?.members || membersRaw?.data || (Array.isArray(membersRaw) ? membersRaw : []);
 
       const teamItems = useMemo(
@@ -128,13 +134,14 @@ export default function DashBoard() {
       const selected = filtered.find((i) => i.id === selectedId) ?? items[0] ?? null;
 
       // Fetch real activity logs for the selected work item from activities API
-      const { data: activitiesRaw } = useGetWorkItemActivitiesQuery(
+      const { data: activitiesRaw, isLoading: isActivitiesLoading } = useGetWorkItemActivitiesQuery(
             { workItemId: selected?.id },
             { skip: !selected?.id }
       );
       // First 7 activities shown in the Recent Activity card
       const activities = (activitiesRaw || []).slice(0, 7);
 
+      // Resets all active view, status, priority, and text search filters back to their default values
       const resetFilters = () => {
             setView('all');
             setStatusFilter('all');
@@ -144,11 +151,13 @@ export default function DashBoard() {
             setSelectedId(null);
       };
 
+      // Sets the active work item table view and smoothly scrolls the table into viewport
       const goTo = (v) => {
             setView(v);
             tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
 
+      // Navigates into a specific team dashboard view and resets active search filters
       const selectTeam = (id, nextView = 'all') => {
             setActiveTeamId(id);
             resetFilters();
@@ -156,17 +165,20 @@ export default function DashBoard() {
             window.scrollTo({ top: 0 });
       };
 
+      // Navigates back to the global all teams overview dashboard
       const goToOverview = () => {
             setActiveTeamId(null);
             resetFilters();
             window.scrollTo({ top: 0 });
       };
 
+      // Toggles sidebar collapse on desktop or toggles mobile drawer on mobile screens
       const toggleSidebar = () => {
             if (window.innerWidth >= 1024) setCollapsed((c) => !c);
             else setMobileOpen(true);
       };
 
+      // Toggles the application color theme between dark and light modes
       const toggleTheme = () => {
             const next = !dark;
             document.documentElement.classList.toggle('dark', next);
@@ -235,17 +247,23 @@ export default function DashBoard() {
                         />
 
                         <main className="space-y-6 p-4">
-                              {!activeTeam ? (
+                              {!activeTeam && !activeTeamId ? (
                                     <AllTeamsOverview
                                           teams={enrichedAllTeams}
                                           items={allItems}
                                           search={search}
                                           user={currentUser}
                                           onSelectTeam={selectTeam}
+                                          isLoading={isDashboardLoading}
                                     />
                               ) : (
                                     <>
-                                          <TeamBanner team={activeTeam} canWrite={canWrite} onBack={goToOverview} />
+                                          <TeamBanner
+                                                team={activeTeam}
+                                                canWrite={canWrite}
+                                                onBack={goToOverview}
+                                                isLoading={isDashboardLoading && !activeTeam}
+                                          />
 
                                           {/* ── Users view (Admin-only management tab) ── */}
                                           {view === 'users' ? (
@@ -258,9 +276,9 @@ export default function DashBoard() {
                                           ) : (
                                                 <>
                                                       <section className="grid gap-6 lg:grid-cols-4">
-                                                            <OperationsCard activeTeam={activeTeam} stats={stats} onGoTo={goTo} />
-                                                            <ApprovalCard isApprover={isApprover} stats={stats} onGoTo={goTo} />
-                                                            <TotalItemsCard stats={stats} onGoTo={goTo} />
+                                                            <OperationsCard activeTeam={activeTeam} stats={stats} onGoTo={goTo} isLoading={isDashboardLoading} />
+                                                            <ApprovalCard isApprover={isApprover} stats={stats} onGoTo={goTo} isLoading={isDashboardLoading} />
+                                                            <TotalItemsCard stats={stats} onGoTo={goTo} isLoading={isDashboardLoading} />
                                                       </section>
 
                                                       <section className="grid gap-6 lg:grid-cols-3">
@@ -269,15 +287,16 @@ export default function DashBoard() {
                                                                   chartPriority={chartPriority}
                                                                   onChartPriorityChange={setChartPriority}
                                                                   onGoTo={goTo}
+                                                                  isLoading={isDashboardLoading}
                                                             />
                                                             <div className="flex flex-col gap-6">
-                                                                  <NewItemsCard newItems={newItems} />
-                                                                  <WorkloadCard workload={workload} />
+                                                                  <NewItemsCard newItems={newItems} isLoading={isDashboardLoading} />
+                                                                  <WorkloadCard workload={workload} isLoading={isDashboardLoading} />
                                                             </div>
                                                       </section>
 
                                                       <section ref={tableRef} className="grid scroll-mt-24 gap-6 lg:grid-cols-3">
-                                                            <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} />
+                                                            <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} isLoading={isActivitiesLoading || isDashboardLoading} />
                                                             <WorkItemsCard
                                                                   activeTeam={activeTeam}
                                                                   total={filtered.length}
@@ -294,11 +313,12 @@ export default function DashBoard() {
                                                                   onPageChange={setPage}
                                                                   onSelect={setSelectedId}
                                                                   onOpenItem={setEditItem}
+                                                                  isLoading={isDashboardLoading}
                                                             />
                                                       </section>
 
                                                       <section>
-                                                            <TeamMembersCard members={members} activeTeam={activeTeam} />
+                                                            <TeamMembersCard members={members} activeTeam={activeTeam} isLoading={isMembersLoading} />
                                                       </section>
                                                 </>
                                           )}

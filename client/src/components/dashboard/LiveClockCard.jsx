@@ -7,8 +7,10 @@ import { CARD } from '@/lib/constants';
 import Chip from '@/components/shared/Chip';
 import HeroIllustration from '@/components/charts/HeroIllustration';
 
-/* Greeting + live clock/date for the user's own region. Click the time to switch 12h / 24h. */
-export default function LiveClockCard({ user, org }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the organization overview hero card with a live clock, regional date, day progress bar, and user teams count
+export default function LiveClockCard({ user, org, isLoading = false }) {
       const [now, setNow] = useState(() => new Date());
       const [is24, setIs24] = useState(false);
 
@@ -54,7 +56,11 @@ export default function LiveClockCard({ user, org }) {
                               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                     <Globe className="size-3.5" />
                                     <span>{tz}{tzShort && ` · ${tzShort}`}</span>
-                                    <Chip>{org.mine} of {org.teams} teams yours</Chip>
+                                    {isLoading ? (
+                                          <Skeleton className="h-5 w-32 rounded-sm" />
+                                    ) : (
+                                          <Chip>{org?.mine ?? 0} of {org?.teams ?? 0} teams yours</Chip>
+                                    )}
                               </div>
                               <div className="flex items-center gap-2" title={`${dayPct}% of today has passed`}>
                                     <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">

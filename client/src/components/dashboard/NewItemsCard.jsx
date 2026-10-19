@@ -5,8 +5,30 @@ import { CARD } from '@/lib/constants';
 import Chip from '@/components/shared/Chip';
 import AreaChart from '@/components/charts/AreaChart';
 
-/* Monthly earnings -> New items */
-export default function NewItemsCard({ newItems }) {
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the weekly new work items metric card with a sparkline area chart and loading skeleton state
+export default function NewItemsCard({ newItems = { series: [], thisWeek: 0, delta: 0 }, isLoading = false }) {
+      if (isLoading) {
+            return (
+                  <Card className={CARD}>
+                        <CardContent className="p-6">
+                              <div className="flex items-start justify-between">
+                                    <h2 className="text-lg font-medium">New items</h2>
+                                    <Skeleton className="size-10 rounded-md" />
+                              </div>
+                              <Skeleton className="mt-5 h-8 w-16 rounded-md" />
+                              <div className="mt-2 flex items-center gap-2">
+                                    <Skeleton className="h-5 w-24 rounded-sm" />
+                                    <Skeleton className="h-4 w-20 rounded-sm" />
+                              </div>
+                              <div className="mt-4">
+                                    <Skeleton className="h-[72px] w-full rounded-lg" />
+                              </div>
+                        </CardContent>
+                  </Card>
+            );
+      }
       return (
             <Card className={CARD}>
                   <CardContent className="p-6">

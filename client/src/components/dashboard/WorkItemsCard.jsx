@@ -13,11 +13,13 @@ import UserAvatar from '@/components/shared/UserAvatar';
 import StatusBadge from '@/components/shared/StatusBadge';
 import PriorityBadge from '@/components/shared/PriorityBadge';
 
-/* Top Campaigns -> Work Items */
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Renders the team work items table card with search/filter controls, status/priority badges, pagination, and loading skeleton support
 export default function WorkItemsCard({
       activeTeam,
-      total,
-      items,
+      total = 0,
+      items = [],
       selected,
       view,
       onViewChange,
@@ -30,13 +32,18 @@ export default function WorkItemsCard({
       onPageChange,
       onSelect,
       onOpenItem,
+      isLoading = false,
 }) {
       return (
             <Card className={cn(CARD, 'lg:col-span-2')}>
                   <CardHeader className="gap-1 px-6 pt-6 pb-0">
                         <CardTitle className="text-lg font-medium">Work Items</CardTitle>
                         <CardDescription className="text-sm">
-                              {total} item{total === 1 ? '' : 's'} in {activeTeam.name}
+                              {isLoading ? (
+                                    <Skeleton className="h-4 w-32 rounded-sm" />
+                              ) : (
+                                    `${total} item${total === 1 ? '' : 's'} in ${activeTeam?.name || 'team'}`
+                              )}
                         </CardDescription>
                   </CardHeader>
 
@@ -81,15 +88,35 @@ export default function WorkItemsCard({
                                     </TableRow>
                               </TableHeader>
                               <TableBody>
-                                    {items.length === 0 && (
+                                    {isLoading ? (
+                                          [1, 2, 3, 4, 5].map((idx) => (
+                                                <TableRow key={idx}>
+                                                      <TableCell className="max-w-[260px] py-3">
+                                                            <Skeleton className="h-4 w-44 rounded-sm" />
+                                                            <Skeleton className="mt-1.5 h-3 w-28 rounded-sm" />
+                                                      </TableCell>
+                                                      <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                                                      <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                                                      <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                  <Skeleton className="size-6 rounded-full" />
+                                                                  <Skeleton className="h-3.5 w-20 rounded-sm" />
+                                                            </div>
+                                                      </TableCell>
+                                                      <TableCell className="text-right">
+                                                            <Skeleton className="ml-auto size-7 rounded-md" />
+                                                      </TableCell>
+                                                </TableRow>
+                                          ))
+                                    ) : items.length === 0 ? (
                                           <TableRow>
                                                 <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                                                       No work items match these filters.
                                                 </TableCell>
                                           </TableRow>
-                                    )}
+                                    ) : null}
 
-                                    {items.map((item) => {
+                                    {!isLoading && items.map((item) => {
                                           // Use real assignee data returned by the API (include: { assignee: true })
                                           const assignee = item.assignee || null;
                                           return (
