@@ -90,7 +90,7 @@ Trade-offs:
 
 Pros: Predictable query performance even as the dataset scales to hundreds of thousands of rows.
 
-Cons*: Less intuitive for jumping to arbitrary page numbers compared to traditional offset pagination.
+Cons: Less intuitive for jumping to arbitrary page numbers compared to traditional offset pagination.
 
 Known Limitations
 Real-time Synchronization: Lacks WebSocket support; clients rely on polling or manual refetching to catch updates made by other users.
