@@ -1,7 +1,7 @@
-1. Overview
+# 1. Overview
 This document outlines the core engineering decisions made during the architecture, design, and implementation of OpsDesk, an internal operations platform built to manage and resolve work items under high concurrency and team constraints.
 
-2. Decision 1: Relational Database with Prisma ORM & PostgreSQL
+# 2. Decision 1: Relational Database with Prisma ORM & PostgreSQL
 Context: The platform requires strong transactional guarantees, complex filtering, foreign key constraints for team memberships, and structured relational history tracking.
 
 Options Considered:
@@ -18,7 +18,7 @@ Pros: Guarantees ACID compliance, allows robust relational queries and indexing,
 
 Cons: Requires rigid schema migrations up front, though Prisma migrations handle schema evolution smoothly.
 
-3. Decision 2: Optimistic Concurrency Control (OCC) for Work Item Updates
+# 3. Decision 2: Optimistic Concurrency Control (OCC) for Work Item Updates
 Context: Multiple users might view or attempt to edit the same operational work item simultaneously, risking data overwrites and stale updates.
 
 Options Considered:
@@ -37,7 +37,7 @@ Pros: High concurrency throughput without locking active rows in the database.
 
 Cons: Requires the client to handle conflict errors gracefully and reload the latest state when a stale edit is rejected.
 
-4. Decision 3: Atomic Resource-Level Authorization & Team Role Scoping
+# 4. Decision 3: Atomic Resource-Level Authorization & Team Role Scoping
 Context: Employees belong to various teams with distinct responsibilities (Viewer, Member, Lead, Admin). Authorization must be enforced securely on the server rather than hiding UI elements.
 
 Options Considered:
@@ -56,7 +56,7 @@ Pros: Bulletproof security; unauthorized API requests are blocked regardless of 
 
 Cons: Adds computational overhead to verify team memberships on every protected endpoint.
 
-5. Decision 4: Append-Only Activity Log via Transactional Outbox Pattern
+# 5. Decision 4: Append-Only Activity Log via Transactional Outbox Pattern
 Context: Every state change, priority adjustment, or assignee re-allocation must leave a permanent, verifiable audit trail without falling out of sync with the core work item data.
 
 Options Considered:
@@ -73,7 +73,7 @@ Pros: Guarantees historical consistency; history can never disagree with the cur
 
 Cons: Slightly longer transaction hold times during heavy write bursts.
 
-6. Decision 5: Cursor-Based Pagination and Server-Side Filtering
+# 6. Decision 5: Cursor-Based Pagination and Server-Side Filtering
 Context: The platform is engineered to handle tens of thousands of active work items and growing history logs without performance degradation.
 
 Options Considered:
