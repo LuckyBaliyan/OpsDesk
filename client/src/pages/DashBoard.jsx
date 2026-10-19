@@ -86,13 +86,16 @@ export default function DashBoard() {
       const [createOpen, setCreateOpen] = useState(false);
       const [editItem, setEditItem] = useState(null);
 
-      const activeTeam = teams.find((t) => (t.id || t._id) === activeTeamId) ?? null;
-      const role = activeTeam?.role ?? null;
+      // Resolve active team from ALL teams (not just user's teams) so non-members can
+      // view any team's dashboard with Viewer-level access (role = null → canWrite = false)
+      const activeTeam = enrichedAllTeams.find((t) => (t.id || t._id) === activeTeamId) ?? null;
+      const role = activeTeam?.role ?? null;          // null = not a member (Viewer access)
+      const isMember = role !== null;                  // true only when user has an explicit role
       const canWrite = WRITE_ROLES.includes(role);
       const isApprover = APPROVER_ROLES.includes(role);
 
-      // Fetch real members for active team from API (replaces MEMBERS mock)
-      const { data: membersRaw } = useGetTeamMembersQuery(activeTeamId, { skip: !activeTeamId });
+      // Fetch team members only when user is an actual member — backend returns 403 otherwise
+      const { data: membersRaw } = useGetTeamMembersQuery(activeTeamId, { skip: !activeTeamId || !isMember });
       const members = membersRaw?.members || membersRaw?.data || (Array.isArray(membersRaw) ? membersRaw : []);
 
       const teamItems = useMemo(
