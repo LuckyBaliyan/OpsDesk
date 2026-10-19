@@ -30,9 +30,6 @@ export default function App() {
       {/* Default fallback route */}
       <Route path="*" element={<Navigate to="/login" replace />} />
 
-      {/*Home*/}
-      <Route path='/' element={<h1>Welcome!</h1>} />
-
     </Routes>
   );
 }
