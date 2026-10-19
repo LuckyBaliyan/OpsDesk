@@ -8,10 +8,15 @@ What you can do in a team depends on your role there: Lead and Admin can approve
 
 ## Screenshots
 
-| All teams overview | Team dashboard | Database Schema | Workflow
-| :---: | :---: | :---: | :---: |
-| ![All teams overview](./screenshots/1.png) | (./screenshots/2.png) | (./screenshots/3.png) | (./screenshots/4.png)
-| ![Database Schema](./screenshots/5.png)
+<p align="center">
+  <img src="./screenshots/1.png" alt="All teams overview" width="49%" />
+  <img src="./screenshots/2.png" alt="Team Analytics" width="49%" />
+</p>
+
+<p align="center">
+  <img src="./screenshots/3.png" alt="Alternate Theme" width="49%" />
+  <img src="./screenshots/5.png" alt="Database Schema" width="49%" />
+</p>
 
 ## Architecture
 
