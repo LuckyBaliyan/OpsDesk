@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/shared/UserAvatar';
 import NavLabel from './NavLabel';
 import NavItem from './NavItem';
-import { useGetUserTeamsQuery } from '@/stores/slices/teamApiSlice';
+import { useGetUserTeamsQuery, teamsApiSlice } from '@/stores/slices/teamApiSlice';
 import { logout, selectCurrentUser } from '@/stores/slices/userSlice';
 import { useNavigate } from 'react-router-dom';
 
@@ -65,6 +65,8 @@ export default function SidebarContent({
 
       const handleSignOut = () => {
             dispatch(logout());
+            // Yeh line RTK Query ke saare cache ko flush/wipe out kar degi!
+            dispatch(teamsApiSlice.util.resetApiState());
             navigate("/login");
       };
 
