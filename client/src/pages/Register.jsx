@@ -86,10 +86,10 @@ export default function Register() {
                                     {isLoading ? (
                                           <div className="flex items-center gap-2">
                                                 <Loader size="sm" />
-                                                <span>Signing in...</span>
+                                                <span>Creating Account...</span>
                                           </div>
                                     ) : (
-                                          'Sign in'
+                                          'Register'
                                     )}
                               </Button>
                         </form>
