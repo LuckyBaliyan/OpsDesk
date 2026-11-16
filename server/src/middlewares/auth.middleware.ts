@@ -45,8 +45,7 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
       }
 };
 
-// 2. Team Role-Based Access Control (RBAC) Middleware
-// 2. Team Role-Based Access Control (RBAC) Middleware (Safe Version)
+// 2. Team Role-Based Access Control (RBAC) Middleware 
 export const requireTeamRole = (allowedRoles: string[]) => {
       return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
             try {
@@ -60,9 +59,12 @@ export const requireTeamRole = (allowedRoles: string[]) => {
                               where: { id: req.params.id as string },
                               select: { teamId: true }
                         });
-                        if (workItem) {
-                              teamId = workItem.teamId;
+                        if (!workItem) {
+                              res.status(404).json({ error: 'Work item not found' });
+                              return;
                         }
+
+                        teamId = workItem.teamId;
                   }
 
                   if (!teamId) {

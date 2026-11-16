@@ -41,7 +41,7 @@ export const createWorkItem = async (req: AuthenticatedRequest, res: Response) =
                         assigneeId: assigneeId || null
                   });
 
-                  console.log("🔥 Outbox job successfully added to transaction!");
+                  console.log("Outbox job successfully added to transaction!");
 
                   return workItem;
             });
