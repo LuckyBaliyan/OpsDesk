@@ -38,16 +38,23 @@ export const isUnassignedUrgent = (item) => {
 
 export const pctOf = (n, total) => (total ? Math.round((n / total) * 100) : 0);
 
+/**
+ * Formats an activity event record into a readable human-friendly audit description.
+ * Handles item creation, status progressions, reassignments, and generic updates.
+ */
 export const describeActivity = (a) => {
+      if (!a) return 'Activity recorded';
       switch (a.actionType) {
             case 'CREATED':
-                  return `created "${a.newValue ?? 'this item'}"`;
+                  return a.newValue
+                        ? (a.newValue.toLowerCase().startsWith('created') ? a.newValue : `created "${a.newValue}"`)
+                        : 'created this item';
             case 'UPDATED':
                   return a.newValue || 'updated this item';
             default: {
-                  const base = a.actionType.toLowerCase().replace(/_/g, ' ');
+                  const base = (a.actionType || '').toLowerCase().replace(/_/g, ' ');
                   if (a.oldValue && a.newValue) return `${base}: ${a.oldValue} → ${a.newValue}`;
-                  return a.newValue ? `${base}: ${a.newValue}` : base;
+                  return a.newValue ? `${base}: ${a.newValue}` : base || 'Activity recorded';
             }
       }
 };

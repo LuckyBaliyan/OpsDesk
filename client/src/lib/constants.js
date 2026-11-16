@@ -3,6 +3,9 @@ export const DAY = 24 * 3600 * 1000;
 export const WRITE_ROLES = ['Member', 'Lead', 'Admin'];
 export const APPROVER_ROLES = ['Lead', 'Admin'];
 
+// Statuses accessible by normal members (only up to awaiting approval)
+export const MEMBER_ALLOWED_STATUSES = ['Open', 'InProgress', 'AwaitingApproval'];
+
 export const STATUSES = ['Open', 'InProgress', 'AwaitingApproval', 'Resolved', 'Closed'];
 export const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 export const TYPES = ['Incident', 'CustomerIssue', 'Payment', 'Compliance', 'Task'];

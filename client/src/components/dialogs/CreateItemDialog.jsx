@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,24 +9,69 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PRIORITIES, TYPES } from '@/lib/constants';
 import { humanize } from '@/lib/helpers';
 
-export default function CreateItemDialog({ members, onClose, onCreate }) {
-      const [form, setForm] = useState({ title: '', description: '', type: 'Task', priority: 'Medium', assigneeId: 'none' });
+/**
+ * Dialog for creating a new work item with role-based assignment restrictions:
+ * - Admin or Lead can assign the task to any team member or leave it unassigned.
+ * - Normal Members can only assign the task to themselves or leave it unassigned.
+ */
+export default function CreateItemDialog({
+      members = [],
+      onClose,
+      onCreate,
+      isAdminOrLead = false,
+      currentUserId = null
+}) {
+      const [form, setForm] = useState({
+            title: '',
+            description: '',
+            type: 'Task',
+            priority: 'Medium',
+            assigneeId: 'none'
+      });
       const [error, setError] = useState('');
 
-      const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+      /**
+       * Curried helper function to update individual form field values in state.
+       */
+      const set = (key) => (value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+      /**
+       * Determines available assignee options based on user role:
+       * - Admins/Leads see all team members.
+       * - Normal members only see 'Unassigned' and their own account.
+       */
+      const assigneeOptions = useMemo(() => {
+            if (isAdminOrLead) {
+                  return members;
+            }
+            // For normal members, filter only their own user entry
+            return members.filter((m) => m.userId === currentUserId);
+      }, [members, isAdminOrLead, currentUserId]);
+
+      /**
+       * Validates form input and submits the new work item data to the parent handler.
+       */
       const submit = (e) => {
             e.preventDefault();
             if (!form.title.trim()) {
                   setError('Title is required');
                   return;
             }
+
+            const chosenAssigneeId = form.assigneeId === 'none' ? null : form.assigneeId;
+
+            // Frontend guard: normal member cannot assign to someone else
+            if (!isAdminOrLead && chosenAssigneeId && chosenAssigneeId !== currentUserId) {
+                  setError('Normal members can only assign tasks to themselves or leave them unassigned.');
+                  return;
+            }
+
             onCreate({
                   title: form.title.trim(),
                   description: form.description.trim(),
                   type: form.type,
                   priority: form.priority,
-                  assigneeId: form.assigneeId === 'none' ? null : form.assigneeId,
+                  assigneeId: chosenAssigneeId,
             });
             onClose();
       };
@@ -37,7 +82,9 @@ export default function CreateItemDialog({ members, onClose, onCreate }) {
                         <form onSubmit={submit} className="space-y-4">
                               <DialogHeader>
                                     <DialogTitle>New work item</DialogTitle>
-                                    <DialogDescription>Create an item for the selected team.</DialogDescription>
+                                    <DialogDescription>
+                                          Create an item for the selected team.
+                                    </DialogDescription>
                               </DialogHeader>
 
                               {error && (
@@ -48,12 +95,22 @@ export default function CreateItemDialog({ members, onClose, onCreate }) {
 
                               <div className="space-y-1.5">
                                     <Label htmlFor="wi-title">Title</Label>
-                                    <Input id="wi-title" value={form.title} onChange={(e) => set('title')(e.target.value)} placeholder="Payment gateway timing out" />
+                                    <Input
+                                          id="wi-title"
+                                          value={form.title}
+                                          onChange={(e) => set('title')(e.target.value)}
+                                          placeholder="Payment gateway timing out"
+                                    />
                               </div>
 
                               <div className="space-y-1.5">
                                     <Label htmlFor="wi-desc">Description</Label>
-                                    <Textarea id="wi-desc" rows={3} value={form.description} onChange={(e) => set('description')(e.target.value)} />
+                                    <Textarea
+                                          id="wi-desc"
+                                          rows={3}
+                                          value={form.description}
+                                          onChange={(e) => set('description')(e.target.value)}
+                                    />
                               </div>
 
                               <div className="grid grid-cols-2 gap-3">
@@ -78,16 +135,28 @@ export default function CreateItemDialog({ members, onClose, onCreate }) {
                               </div>
 
                               <div className="space-y-1.5">
-                                    <Label>Assignee</Label>
+                                    <div className="flex items-center justify-between">
+                                          <Label>Assignee</Label>
+                                          {!isAdminOrLead && (
+                                                <span className="text-[11px] text-muted-foreground">Self or unassigned only</span>
+                                          )}
+                                    </div>
                                     <Select value={form.assigneeId} onValueChange={set('assigneeId')}>
                                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                                           <SelectContent>
                                                 <SelectItem value="none">Unassigned</SelectItem>
-                                                {members.map((m) => (
-                                                      <SelectItem key={m.userId} value={m.userId}>{m.user.name}</SelectItem>
+                                                {assigneeOptions.map((m) => (
+                                                      <SelectItem key={m.userId} value={m.userId}>
+                                                            {m.user.name} {m.userId === currentUserId ? '(Myself)' : ''}
+                                                      </SelectItem>
                                                 ))}
                                           </SelectContent>
                                     </Select>
+                                    {!isAdminOrLead && (
+                                          <p className="text-[11px] text-muted-foreground">
+                                                As a normal member, you can only create tasks for yourself or leave them unassigned until a Lead or Admin assigns them.
+                                          </p>
+                                    )}
                               </div>
 
                               <DialogFooter>

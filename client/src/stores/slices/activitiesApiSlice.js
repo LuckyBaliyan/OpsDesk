@@ -22,6 +22,7 @@ export const activitiesApiSlice = createApi({
                   // Server returns { data: [...], pagination: {...} } — extract data
                   transformResponse: (response) => response.data || response,
                   providesTags: (result, error, { workItemId }) => [
+                        'Activity',
                         { type: 'Activity', id: workItemId },
                   ],
             }),

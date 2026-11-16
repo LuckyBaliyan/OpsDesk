@@ -20,8 +20,8 @@ workItemsRouter.patch('/work-items/:id', requireAuth, idempotencyMiddleware, upd
 //5.get a single work item by its id
 workItemsRouter.get('/work-items/:id', requireAuth, getWorkItemById);
 
-//6.delete a work item
-workItemsRouter.delete('/work-items/:id', requireAuth, requireTeamRole(['Admin']), deleteWorkItem);
+// 6. Delete a work item (Restricted to Admin and Lead)
+workItemsRouter.delete('/work-items/:id', requireAuth, requireTeamRole(['Admin', 'Lead']), deleteWorkItem);
 
 
 export default workItemsRouter;

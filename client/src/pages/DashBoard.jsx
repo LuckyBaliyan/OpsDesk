@@ -1,10 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { APPROVER_ROLES, PAGE_SIZE, WRITE_ROLES } from '@/lib/constants';
 import { isUnassignedUrgent } from '@/lib/helpers';
 import { useGetUserTeamsQuery, useGetAllTeamsQuery, useGetTeamMembersQuery } from '@/stores/slices/teamApiSlice';
-import { useGetAllWorkItemsQuery, useCreateWorkItemMutation, useUpdateWorkItemMutation } from '@/stores/slices/workItemsApiSlice';
+import { useGetAllWorkItemsQuery, useCreateWorkItemMutation, useUpdateWorkItemMutation, useDeleteWorkItemMutation } from '@/stores/slices/workItemsApiSlice';
 import { useGetWorkItemActivitiesQuery } from '@/stores/slices/activitiesApiSlice';
 import { selectCurrentUser } from '@/stores/slices/userSlice';
 import useDashboardData from '@/hooks/userDashBoardData';
@@ -35,7 +37,11 @@ export default function DashBoard() {
       const currentUser = useSelector(selectCurrentUser);
       const { data: userTeamsData, isLoading: isUserTeamsLoading } = useGetUserTeamsQuery(currentUser?.id);
       const { data: allTeamsData, isLoading: isAllTeamsLoading } = useGetAllTeamsQuery();
-      const { data: workItemsData, isLoading: isWorkItemsLoading } = useGetAllWorkItemsQuery();
+      const {
+            data: workItemsData,
+            isLoading: isWorkItemsLoading,
+            isFetching: isWorkItemsFetching
+      } = useGetAllWorkItemsQuery();
 
       // Combined loading flag for initial server fetch across teams and work items
       const isDashboardLoading = (isAllTeamsLoading || isWorkItemsLoading) && (!allTeamsData || !workItemsData);
@@ -73,7 +79,15 @@ export default function DashBoard() {
       const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
       const tableRef = useRef(null);
 
-      const [activeTeamId, setActiveTeamId] = useState(null);
+      const [searchParams, setSearchParams] = useSearchParams();
+      const urlTeamId = searchParams.get('teamId') || null;
+
+      const [activeTeamId, setActiveTeamId] = useState(urlTeamId);
+
+      // Keep activeTeamId in sync with the URL search param (e.g., when navigating back or switching teams)
+      useEffect(() => {
+            setActiveTeamId(urlTeamId);
+      }, [urlTeamId]);
 
       const [search, setSearch] = useState('');
       const [view, setView] = useState('all');
@@ -133,13 +147,23 @@ export default function DashBoard() {
 
       const selected = filtered.find((i) => i.id === selectedId) ?? items[0] ?? null;
 
-      // Fetch real activity logs for the selected work item from activities API
-      const { data: activitiesRaw, isLoading: isActivitiesLoading } = useGetWorkItemActivitiesQuery(
+      // Fetch real activity logs for the selected work item with auto-refetch when selected id changes
+      const {
+            data: activitiesRaw,
+            isLoading: isActivitiesLoading,
+            isFetching: isActivitiesFetching
+      } = useGetWorkItemActivitiesQuery(
             { workItemId: selected?.id },
-            { skip: !selected?.id }
+            { skip: !selected?.id, refetchOnMountOrArgChange: true }
       );
-      // First 7 activities shown in the Recent Activity card
-      const activities = (activitiesRaw || []).slice(0, 7);
+
+      // Sort activities deterministically with latest createdAt first, showing top 7 in card
+      const activities = useMemo(() => {
+            const list = Array.isArray(activitiesRaw) ? [...activitiesRaw] : [];
+            return list
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 7);
+      }, [activitiesRaw]);
 
       // Resets all active view, status, priority, and text search filters back to their default values
       const resetFilters = () => {
@@ -157,17 +181,23 @@ export default function DashBoard() {
             tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
 
-      // Navigates into a specific team dashboard view and resets active search filters
+      /**
+       * Navigates into a specific team dashboard view, updates URL query params, and resets active search filters
+       */
       const selectTeam = (id, nextView = 'all') => {
             setActiveTeamId(id);
+            setSearchParams(id ? { teamId: id } : {});
             resetFilters();
             if (nextView !== 'all') setView(nextView);
             window.scrollTo({ top: 0 });
       };
 
-      // Navigates back to the global all teams overview dashboard
+      /**
+       * Navigates back to the global all teams overview dashboard and clears URL query params
+       */
       const goToOverview = () => {
             setActiveTeamId(null);
+            setSearchParams({});
             resetFilters();
             window.scrollTo({ top: 0 });
       };
@@ -186,23 +216,55 @@ export default function DashBoard() {
       };
 
       // RTK Query mutations for creating and updating work items
-      const [createWorkItem] = useCreateWorkItemMutation();
-      const [updateWorkItem] = useUpdateWorkItemMutation();
+      const [createWorkItem, { isLoading: isCreating }] = useCreateWorkItemMutation();
+      const [updateWorkItem, { isLoading: isUpdating }] = useUpdateWorkItemMutation();
+      const [deleteWorkItem, { isLoading: isDeleting }] = useDeleteWorkItemMutation();
 
-      // Handler for CreateItemDialog — calls POST /work-items API with active team id
+      // Tracks which item is currently mid-delete (fades that row in the table)
+      const [deletingItemId, setDeletingItemId] = useState(null);
+
+      // Holds the item pending delete confirmation in the overlay dialog (null = no dialog)
+      const [confirmDeleteItem, setConfirmDeleteItem] = useState(null);
+
+      // Combined mutation state indicating active work item CRUD operation
+      const isWorkItemMutating = isCreating || isUpdating || isDeleting;
+
+      // Combined loading flag for WorkItemsCard (initial load, background refetch, or mutation in progress)
+      const isWorkItemsCardLoading =
+            isDashboardLoading ||
+            isWorkItemsLoading ||
+            isWorkItemsFetching ||
+            isWorkItemMutating;
+
+      // Combined loading flag for RecentActivityCard (initial load, item switch, activities refetch, or CRUD mutation)
+      const isActivitiesCardLoading =
+            isDashboardLoading ||
+            isActivitiesLoading ||
+            isActivitiesFetching ||
+            isWorkItemMutating;
+
+      /**
+       * Handler for CreateItemDialog — calls POST /work-items API with active team id.
+       * Automatically selects newly created item so recent activities and item details refresh immediately.
+       */
       const handleCreate = async (formData) => {
             if (!activeTeamId) return;
             try {
-                  await createWorkItem({
+                  const createdItem = await createWorkItem({
                         ...formData,
                         teamId: activeTeamId,
                   }).unwrap();
+                  if (createdItem?.id) {
+                        setSelectedId(createdItem.id);
+                  }
             } catch (err) {
                   console.error('Create work item failed:', err);
             }
       };
 
-      // Handler for EditItemDialog — calls PATCH /work-items/:id API with optimistic lock version
+      /**
+       * Handler for EditItemDialog — calls PATCH /work-items/:id API with optimistic lock version.
+       */
       const handleSave = async (id, formData) => {
             const currentItem = allItems.find((i) => i.id === id);
             try {
@@ -216,6 +278,39 @@ export default function DashBoard() {
                   console.error('Update work item failed:', err);
             }
       };
+
+      /**
+       * Opens the inline confirm overlay for a table-row delete request.
+       * Called by WorkItemsCard when Admin/Lead clicks the row's trash icon.
+       */
+      const handleDeleteRequest = (item) => {
+            setConfirmDeleteItem(item);
+      };
+
+      /**
+       * Executes the actual DELETE /work-items/:id API call after the user confirms.
+       * Clears the selected item highlight and closes the edit dialog if the deleted
+       * item was currently open. Also used directly by EditItemDialog's onDelete prop.
+       */
+      const handleDeleteConfirm = async (idToDelete) => {
+            setConfirmDeleteItem(null);
+            setDeletingItemId(idToDelete);
+            try {
+                  await deleteWorkItem(idToDelete).unwrap();
+                  if (selectedId === idToDelete) setSelectedId(null);
+                  // Close edit dialog if the deleted item is currently open
+                  if (editItem?.id === idToDelete) setEditItem(null);
+            } catch (err) {
+                  console.error('Delete work item failed:', err);
+            } finally {
+                  setDeletingItemId(null);
+            }
+      };
+
+      /**
+       * Cancels the pending delete confirmation overlay without performing any action.
+       */
+      const handleDeleteCancel = () => setConfirmDeleteItem(null);
 
       const sidebarProps = {
             teams: teams,
@@ -296,7 +391,12 @@ export default function DashBoard() {
                                                       </section>
 
                                                       <section ref={tableRef} className="grid scroll-mt-24 gap-6 lg:grid-cols-3">
-                                                            <RecentActivityCard selected={selected} activities={activities} onOpenItem={setEditItem} isLoading={isActivitiesLoading || isDashboardLoading} />
+                                                            <RecentActivityCard
+                                                                  selected={selected}
+                                                                  activities={activities}
+                                                                  onOpenItem={setEditItem}
+                                                                  isLoading={isActivitiesCardLoading}
+                                                            />
                                                             <WorkItemsCard
                                                                   activeTeam={activeTeam}
                                                                   total={filtered.length}
@@ -313,7 +413,10 @@ export default function DashBoard() {
                                                                   onPageChange={setPage}
                                                                   onSelect={setSelectedId}
                                                                   onOpenItem={setEditItem}
-                                                                  isLoading={isDashboardLoading}
+                                                                  onDeleteItem={handleDeleteRequest}
+                                                                  isAdminOrLead={isApprover}
+                                                                  deletingId={deletingItemId}
+                                                                  isLoading={isWorkItemsCardLoading}
                                                             />
                                                       </section>
 
@@ -328,7 +431,13 @@ export default function DashBoard() {
                   </div>
 
                   {createOpen && activeTeam && (
-                        <CreateItemDialog members={members} onClose={() => setCreateOpen(false)} onCreate={handleCreate} />
+                        <CreateItemDialog
+                              members={members}
+                              isAdminOrLead={isApprover}
+                              currentUserId={currentUser?.id}
+                              onClose={() => setCreateOpen(false)}
+                              onCreate={handleCreate}
+                        />
                   )}
 
                   {editItem && activeTeam && (
@@ -338,9 +447,27 @@ export default function DashBoard() {
                               members={members}
                               meId={currentUser?.id}
                               canWrite={canWrite}
+                              isAdminOrLead={isApprover}
                               onClose={() => setEditItem(null)}
                               onSave={handleSave}
+                              onDelete={handleDeleteConfirm}
                         />
+                  )}
+
+                  {/* Inline confirm overlay for table-row delete requests — Admin/Lead only */}
+                  {confirmDeleteItem && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                              <div className="rounded-xl border border-border bg-card p-6 shadow-xl max-w-sm w-full mx-4 space-y-4">
+                                    <h3 className="font-semibold text-foreground">Delete work item?</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                          <span className="font-medium text-foreground">"{confirmDeleteItem.title}"</span> will be permanently deleted. This cannot be undone.
+                                    </p>
+                                    <div className="flex justify-end gap-3">
+                                          <Button variant="outline" onClick={handleDeleteCancel} className="cursor-pointer">Cancel</Button>
+                                          <Button variant="destructive" onClick={() => handleDeleteConfirm(confirmDeleteItem.id)} className="cursor-pointer">Delete</Button>
+                                    </div>
+                              </div>
+                        </div>
                   )}
             </div>
       );

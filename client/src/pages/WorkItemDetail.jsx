@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
       ArrowLeft, Send, Pencil, Trash2, X, Check,
@@ -458,6 +458,7 @@ function ActivitySection({ workItemId }) {
 export default function WorkItemDetail() {
       const { id } = useParams();
       const navigate = useNavigate();
+      const location = useLocation();
       const currentUser = useSelector(selectCurrentUser);
 
       const [activeTab, setActiveTab] = useState('comments');
@@ -470,6 +471,18 @@ export default function WorkItemDetail() {
             const isDark = document.documentElement.classList.toggle('dark');
             document.documentElement.classList.toggle('light', !isDark);
             setDark(isDark);
+      };
+
+      /**
+       * Navigates back when work item is not found or an error occurred.
+       * Restores the team dashboard if a teamId was provided via route state; otherwise navigates to general dashboard.
+       */
+      const handleNotFoundBack = () => {
+            if (location.state?.teamId) {
+                  navigate(`/dashboard?teamId=${location.state.teamId}`);
+            } else {
+                  navigate('/dashboard');
+            }
       };
 
       const { data: workItem, isLoading, isError } = useGetWorkItemByIdQuery(id, { skip: !id });
@@ -486,7 +499,7 @@ export default function WorkItemDetail() {
                         </p>
                         <button
                               type="button"
-                              onClick={() => navigate(-1)}
+                              onClick={handleNotFoundBack}
                               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                         >
                               <ArrowLeft className="size-4" /> Go back
@@ -498,6 +511,20 @@ export default function WorkItemDetail() {
       const item = workItem?.data ?? workItem;
       const typeInfo = getTypeInfo(item.type);
       const TypeIcon = typeInfo.icon;
+      const targetTeamId = item?.teamId || location.state?.teamId;
+
+      /**
+       * Navigates back to the specific team dashboard that this work item belongs to.
+       * If teamId is available on the item or route state, navigates to /dashboard?teamId=<id>;
+       * otherwise falls back to the general /dashboard overview.
+       */
+      const handleBack = () => {
+            if (targetTeamId) {
+                  navigate(`/dashboard?teamId=${targetTeamId}`);
+            } else {
+                  navigate('/dashboard');
+            }
+      };
 
       return (
             <div className="min-h-screen bg-background text-foreground antialiased">
@@ -506,7 +533,7 @@ export default function WorkItemDetail() {
                   <header className="sticky top-0 z-30 flex h-[68px] items-center gap-3 border-b border-border bg-background/80 px-4 sm:px-8 backdrop-blur">
                         <button
                               type="button"
-                              onClick={() => navigate(-1)}
+                              onClick={handleBack}
                               aria-label="Go back"
                               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                         >
@@ -522,6 +549,17 @@ export default function WorkItemDetail() {
                                     <Layers className="size-4 text-muted-foreground" />
                                     <span>Dashboard</span>
                               </Link>
+                              {targetTeamId && (
+                                    <>
+                                          <ChevronRight className="size-3.5 text-muted-foreground/60 shrink-0" />
+                                          <Link
+                                                to={`/dashboard?teamId=${targetTeamId}`}
+                                                className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[140px]"
+                                          >
+                                                {item?.team?.name || 'Team'}
+                                          </Link>
+                                    </>
+                              )}
                               <ChevronRight className="size-3.5 text-muted-foreground/60 shrink-0" />
                               <span className="font-semibold text-foreground truncate max-w-[160px] sm:max-w-md">
                                     {item.title}

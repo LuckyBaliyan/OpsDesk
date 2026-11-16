@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eye, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, ExternalLink, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,11 @@ import PriorityBadge from '@/components/shared/PriorityBadge';
 
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Renders the team work items table card with search/filter controls, status/priority badges, pagination, and loading skeleton support
+/**
+ * Renders the team work items table card with search/filter controls, status/priority badges,
+ * pagination, action buttons, and loading skeleton support.
+ * Delete button is only shown for Admin and Lead roles via isAdminOrLead prop.
+ */
 export default function WorkItemsCard({
       activeTeam,
       total = 0,
@@ -32,6 +36,9 @@ export default function WorkItemsCard({
       onPageChange,
       onSelect,
       onOpenItem,
+      onDeleteItem,
+      isAdminOrLead = false,
+      deletingId = null,
       isLoading = false,
 }) {
       return (
@@ -104,7 +111,11 @@ export default function WorkItemsCard({
                                                             </div>
                                                       </TableCell>
                                                       <TableCell className="text-right">
-                                                            <Skeleton className="ml-auto size-7 rounded-md" />
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                  <Skeleton className="size-7 rounded-md" />
+                                                                  <Skeleton className="size-7 rounded-md" />
+                                                                  {isAdminOrLead && <Skeleton className="size-7 rounded-md" />}
+                                                            </div>
                                                       </TableCell>
                                                 </TableRow>
                                           ))
@@ -119,11 +130,17 @@ export default function WorkItemsCard({
                                     {!isLoading && items.map((item) => {
                                           // Use real assignee data returned by the API (include: { assignee: true })
                                           const assignee = item.assignee || null;
+                                          const isDeleting = deletingId === item.id;
+
                                           return (
                                                 <TableRow
                                                       key={item.id}
                                                       onClick={() => onSelect(item.id)}
-                                                      className={cn('cursor-pointer', selected?.id === item.id && 'bg-muted/50')}
+                                                      className={cn(
+                                                            'cursor-pointer transition-opacity',
+                                                            selected?.id === item.id && 'bg-muted/50',
+                                                            isDeleting && 'opacity-40 pointer-events-none'
+                                                      )}
                                                 >
                                                       <TableCell className="max-w-[260px]">
                                                             <p className="truncate font-medium">{item.title}</p>
@@ -145,7 +162,7 @@ export default function WorkItemsCard({
                                                       </TableCell>
                                                       <TableCell className="text-right">
                                                             <div className="flex items-center justify-end gap-1">
-                                                                  {/* Eye = quick-edit dialog (original behavior) */}
+                                                                  {/* Eye = quick-edit dialog */}
                                                                   <Button
                                                                         variant="ghost"
                                                                         size="icon"
@@ -159,15 +176,34 @@ export default function WorkItemsCard({
                                                                   >
                                                                         <Eye className="size-4" />
                                                                   </Button>
+
                                                                   {/* ExternalLink = full detail page */}
                                                                   <Link
                                                                         to={`/work-items/${item.id}`}
+                                                                        state={{ teamId: item.teamId }}
                                                                         onClick={(e) => e.stopPropagation()}
                                                                         className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                                                                         aria-label={`View full details of ${item.title}`}
                                                                   >
                                                                         <ExternalLink className="size-4" />
                                                                   </Link>
+
+                                                                  {/* Delete — Admin / Lead only */}
+                                                                  {isAdminOrLead && (
+                                                                        <Button
+                                                                              variant="ghost"
+                                                                              size="icon"
+                                                                              className="size-8 cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                                              aria-label={`Delete ${item.title}`}
+                                                                              disabled={isDeleting}
+                                                                              onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    onDeleteItem(item);
+                                                                              }}
+                                                                        >
+                                                                              <Trash2 className="size-4" />
+                                                                        </Button>
+                                                                  )}
                                                             </div>
                                                       </TableCell>
                                                 </TableRow>

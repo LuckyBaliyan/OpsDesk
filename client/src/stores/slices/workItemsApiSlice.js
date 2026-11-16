@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { activitiesApiSlice } from './activitiesApiSlice.js';
 
 export const workItemsApiSlice = createApi({
       reducerPath: 'workItemsApi',
@@ -45,6 +46,17 @@ export const workItemsApiSlice = createApi({
                   }),
                   // Create ke baad saari lists invalidate karein taaki fresh data aaye
                   invalidatesTags: ['WorkItem'],
+                  async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                        try {
+                              const { data } = await queryFulfilled;
+                              if (data?.id) {
+                                    dispatch(activitiesApiSlice.util.invalidateTags([
+                                          'Activity',
+                                          { type: 'Activity', id: data.id }
+                                    ]));
+                              }
+                        } catch {}
+                  },
             }),
 
             // Existing work item update karne ke liye — PATCH /work-items/:id
@@ -60,6 +72,17 @@ export const workItemsApiSlice = createApi({
                         'WorkItem',
                         { type: 'WorkItem', id },
                   ],
+                  async onQueryStarted({ id }, { dispatch, queryFulfilled }) {
+                        try {
+                              await queryFulfilled;
+                              if (id) {
+                                    dispatch(activitiesApiSlice.util.invalidateTags([
+                                          'Activity',
+                                          { type: 'Activity', id }
+                                    ]));
+                              }
+                        } catch {}
+                  },
             }),
 
             // Work item delete karne ke liye — DELETE /work-items/:id
@@ -69,6 +92,17 @@ export const workItemsApiSlice = createApi({
                         method: 'DELETE',
                   }),
                   invalidatesTags: ['WorkItem'],
+                  async onQueryStarted(id, { dispatch, queryFulfilled }) {
+                        try {
+                              await queryFulfilled;
+                              if (id) {
+                                    dispatch(activitiesApiSlice.util.invalidateTags([
+                                          'Activity',
+                                          { type: 'Activity', id }
+                                    ]));
+                              }
+                        } catch {}
+                  },
             }),
       }),
 });

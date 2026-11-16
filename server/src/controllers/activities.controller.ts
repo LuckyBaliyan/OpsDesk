@@ -4,7 +4,11 @@ import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 
 const prisma = new PrismaClient();
 
-// Get audit logs / activity events for a specific work item with pagination
+/**
+ * Retrieves paginated audit logs / activity events for a specific work item.
+ * Validates work item existence and verifies the requesting user belongs to the associated team.
+ * Orders results strictly by newest createdAt first, followed by id descending for deterministic pagination.
+ */
 export const getWorkItemActivities = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       try {
             const { workItemId } = req.params as { workItemId: string };
@@ -43,7 +47,10 @@ export const getWorkItemActivities = async (req: AuthenticatedRequest, res: Resp
                         include: {
                               actor: { select: { id: true, name: true, email: true } }
                         },
-                        orderBy: { createdAt: 'desc' }, // Naye events sabse upar dikhenge
+                        orderBy: [
+                              { createdAt: 'desc' },
+                              { id: 'desc' }
+                        ],
                         skip: skip,
                         take: pageSize
                   }),
