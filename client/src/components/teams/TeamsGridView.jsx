@@ -2,8 +2,24 @@ import { Users, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
+ * Maps a team role to a semantic pill badge style.
+ */
+function getRoleBadgeClass(role) {
+      switch ((role || '').toLowerCase()) {
+            case 'admin':
+                  return 'bg-teal-500/15 text-teal-400 border-teal-500/30';
+            case 'lead':
+                  return 'bg-sky-500/15 text-sky-400 border-sky-500/30';
+            case 'member':
+                  return 'bg-violet-500/15 text-violet-400 border-violet-500/30';
+            default:
+                  return 'bg-muted/60 text-muted-foreground border-border/60';
+      }
+}
+
+/**
  * Renders the All Teams directory in a responsive 3-column card grid layout.
- * Cards display team icon, pin button, title, description, member count, and work item count.
+ * Cards display team icon, user role badge, pin button, title, description, member count, and work item count.
  */
 export default function TeamsGridView({
       teams = [],
@@ -29,6 +45,7 @@ export default function TeamsGridView({
                         const starred = isTeamStarred(teamId);
                         const membersCount = item.membersCount ?? team.membersCount ?? 0;
                         const workItemsCount = item.workItemsCount ?? team.workItemsCount ?? 0;
+                        const userRole = team.role || team.myRole || 'Viewer';
 
                         return (
                               <div
@@ -37,33 +54,46 @@ export default function TeamsGridView({
                                     className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 cursor-pointer transition-all hover:border-border hover:shadow-md"
                               >
                                     <div>
-                                          {/* Top: Icon + Pin button */}
+                                          {/* Top: Icon + User Role Badge + Pin button */}
                                           <div className="flex items-center justify-between">
                                                 <div className="flex size-10 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground group-hover:text-foreground transition-colors">
                                                       <Users className="size-5" />
                                                 </div>
 
-                                                <button
-                                                      type="button"
-                                                      onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onToggleStar(teamId);
-                                                      }}
-                                                      aria-label={starred ? 'Unpin team' : 'Pin team'}
-                                                      className={cn(
-                                                            'size-8 inline-flex items-center justify-center rounded-lg cursor-pointer transition-colors',
-                                                            starred
-                                                                  ? 'text-amber-400 hover:text-amber-500'
-                                                                  : 'text-muted-foreground/40 hover:text-foreground'
-                                                      )}
-                                                >
-                                                      <Pin
+                                                <div className="flex items-center gap-2">
+                                                      {/* User Role Badge */}
+                                                      <span
                                                             className={cn(
-                                                                  'size-4 transition-transform duration-200',
-                                                                  starred && 'fill-amber-400 rotate-45'
+                                                                  'inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full border',
+                                                                  getRoleBadgeClass(userRole)
                                                             )}
-                                                      />
-                                                </button>
+                                                      >
+                                                            {userRole}
+                                                      </span>
+
+                                                      {/* Pin / Star Action */}
+                                                      <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  onToggleStar(teamId);
+                                                            }}
+                                                            aria-label={starred ? 'Unpin team' : 'Pin team'}
+                                                            className={cn(
+                                                                  'size-8 inline-flex items-center justify-center rounded-lg cursor-pointer transition-colors',
+                                                                  starred
+                                                                        ? 'text-amber-400 hover:text-amber-500'
+                                                                        : 'text-muted-foreground/40 hover:text-foreground'
+                                                            )}
+                                                      >
+                                                            <Pin
+                                                                  className={cn(
+                                                                        'size-4 transition-transform duration-200',
+                                                                        starred && 'fill-amber-400 rotate-45'
+                                                                  )}
+                                                            />
+                                                      </button>
+                                                </div>
                                           </div>
 
                                           {/* Title & Description */}
