@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // Renders the team operations dashboard card highlighting urgent unassigned items and my assigned workload with loading skeleton support
 export default function OperationsCard({ activeTeam, stats = {}, onGoTo, isLoading = false }) {
-      if (isLoading) {
+      if (isLoading || !activeTeam) {
             return (
                   <Card className={cn(CARD, 'relative min-h-[170px] overflow-hidden lg:col-span-2')}>
                         <CardContent className="relative z-10 flex h-full flex-col justify-between gap-6 p-6">
@@ -47,7 +47,7 @@ export default function OperationsCard({ activeTeam, stats = {}, onGoTo, isLoadi
                   <CardContent className="relative z-10 flex h-full flex-col justify-between gap-6 p-6">
                         <div>
                               <h2 className="text-lg font-medium">Operations Dashboard</h2>
-                              <p className="mt-1 text-sm text-muted-foreground">What needs attention in {activeTeam.name}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">What needs attention in {activeTeam?.name || 'this team'}</p>
                         </div>
 
                         <div className="flex items-end gap-6">

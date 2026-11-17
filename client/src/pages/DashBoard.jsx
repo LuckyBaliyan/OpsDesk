@@ -10,6 +10,7 @@ import { useGetAllWorkItemsQuery, useCreateWorkItemMutation, useUpdateWorkItemMu
 import { useGetWorkItemActivitiesQuery } from '@/stores/slices/activitiesApiSlice';
 import { selectCurrentUser } from '@/stores/slices/userSlice';
 import useDashboardData from '@/hooks/userDashBoardData';
+import useTeamPreferences from '@/hooks/useTeamPreferences';
 import { useSelector } from 'react-redux';
 
 import Sidebar from '@/components/layout/SideBar';
@@ -83,11 +84,15 @@ export default function DashBoard() {
       const urlTeamId = searchParams.get('teamId') || null;
 
       const [activeTeamId, setActiveTeamId] = useState(urlTeamId);
+      const { recordRecentVisit } = useTeamPreferences();
 
       // Keep activeTeamId in sync with the URL search param (e.g., when navigating back or switching teams)
       useEffect(() => {
             setActiveTeamId(urlTeamId);
-      }, [urlTeamId]);
+            if (urlTeamId) {
+                  recordRecentVisit(urlTeamId);
+            }
+      }, [urlTeamId, recordRecentVisit]);
 
       const [search, setSearch] = useState('');
       const [view, setView] = useState('all');
@@ -185,6 +190,7 @@ export default function DashBoard() {
        * Navigates into a specific team dashboard view, updates URL query params, and resets active search filters
        */
       const selectTeam = (id, nextView = 'all') => {
+            if (id) recordRecentVisit(id);
             setActiveTeamId(id);
             setSearchParams(id ? { teamId: id } : {});
             resetFilters();
@@ -421,7 +427,7 @@ export default function DashBoard() {
                                                       </section>
 
                                                       <section>
-                                                            <TeamMembersCard members={members} activeTeam={activeTeam} isLoading={isMembersLoading} />
+                                                            <TeamMembersCard members={members} activeTeam={activeTeam} isLoading={isMembersLoading || !activeTeam} />
                                                       </section>
                                                 </>
                                           )}

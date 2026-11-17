@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashBoard from './pages/DashBoard';
+import TeamsDirectory from './pages/TeamsDirectory';
 import WorkItemDetail from './pages/WorkItemDetail';
 import Protected from './components/auth/Protected';
 
@@ -17,6 +18,13 @@ export default function App() {
       <Route path="/dashboard" element={
         <Protected>
           <DashBoard />
+        </Protected>
+      } />
+
+      {/* Dedicated All Teams Directory */}
+      <Route path="/teams" element={
+        <Protected>
+          <TeamsDirectory />
         </Protected>
       } />
 

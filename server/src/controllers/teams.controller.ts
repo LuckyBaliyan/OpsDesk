@@ -299,3 +299,63 @@ export const getTeamById = async (req: AuthenticatedRequest, res: Response): Pro
             res.status(500).json({ error: 'Failed to fetch team details' });
       }
 };
+
+/**
+ * Fetches all pinned team IDs for the authenticated user from the database.
+ */
+export const getPinnedTeams = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const userId = req.user!.id;
+            const pinned = await prisma.pinnedTeam.findMany({
+                  where: { userId },
+                  select: { teamId: true }
+            });
+            const teamIds = pinned.map((p) => p.teamId);
+            res.json({ teamIds });
+      } catch (error) {
+            console.error('Get Pinned Teams Error:', error);
+            res.status(500).json({ error: 'Failed to fetch pinned teams' });
+      }
+};
+
+/**
+ * Toggles the pinned/starred status of a team for the authenticated user.
+ * If already pinned, removes it; otherwise creates a new pinned record in the database.
+ */
+export const togglePinTeam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+      try {
+            const userId = req.user!.id;
+            const { teamId } = req.params as { teamId: string };
+
+            if (!teamId) {
+                  res.status(400).json({ error: 'Team ID is required' });
+                  return;
+            }
+
+            const existing = await prisma.pinnedTeam.findUnique({
+                  where: {
+                        userId_teamId: { userId, teamId }
+                  }
+            });
+
+            if (existing) {
+                  await prisma.pinnedTeam.delete({
+                        where: {
+                              userId_teamId: { userId, teamId }
+                        }
+                  });
+                  res.json({ pinned: false, teamId });
+            } else {
+                  await prisma.pinnedTeam.create({
+                        data: {
+                              userId,
+                              teamId
+                        }
+                  });
+                  res.json({ pinned: true, teamId });
+            }
+      } catch (error) {
+            console.error('Toggle Pin Team Error:', error);
+            res.status(500).json({ error: 'Failed to toggle team pin status' });
+      }
+};

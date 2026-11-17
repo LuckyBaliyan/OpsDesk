@@ -1,22 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Layers, ShieldCheck, TriangleAlert, Users } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CARD, DAY, PRIORITIES, STATUSES } from '@/lib/constants';
 import { isActive, isUnassignedUrgent } from '@/lib/helpers';
 import Chip from '@/components/shared/Chip';
 import IconCircle from '@/components/shared/IconCircle';
-
 import { Skeleton } from '@/components/ui/skeleton';
+
 import LiveClockCard from './LiveClockCard';
 import TeamsWorkloadChart from './TeamsWorkloadChart';
 import StatusMixCard from './StatusMixCard';
 import NewItemsCard from './NewItemsCard';
 import PriorityMixCard from './PriorityMixCard';
 import NeedsAttentionCard from './NeedsAttentionCard';
-import TeamCard, { TeamCardSkeleton } from './TeamCard';
+import ActiveTeamsSection from './ActiveTeamsSection';
 
 // Renders an individual organization statistic metric card with support for a pulsing skeleton loading state
 function OrgStat({ title, value, chip, tone, icon, isLoading = false }) {
@@ -43,18 +41,18 @@ function OrgStat({ title, value, chip, tone, icon, isLoading = false }) {
       );
 }
 
-const SORTS = {
-      default: () => 0,
-      urgent: (a, b) => b.urgent - a.urgent || b.active - a.active,
-      active: (a, b) => b.active - a.active,
-      name: (a, b) => a.team.name.localeCompare(b.team.name),
-};
-
-// Renders the organization-wide overview dashboard including the live clock, aggregate metrics, workload and priority charts, and team cards
-export default function AllTeamsOverview({ teams = [], items = [], search = '', user, onSelectTeam, isLoading = false }) {
-      const [scope, setScope] = useState('all'); // all | mine | others
-      const [sort, setSort] = useState('default');
-
+/**
+ * Optimized Global Organization Dashboard Overview.
+ * Displays high-level KPIs, organization workload, trend charts, attention list,
+ * and top active teams categorized by activity volume.
+ */
+export default function AllTeamsOverview({
+      teams = [],
+      items = [],
+      user,
+      onSelectTeam,
+      isLoading = false
+}) {
       const data = useMemo(() => {
             const rows = teams.map((team) => {
                   const teamId = team.id || team._id;
@@ -78,7 +76,7 @@ export default function AllTeamsOverview({ teams = [], items = [], search = '', 
             const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
             const activeItems = items.filter(isActive);
 
-            // new items per day across every team
+            // New items per day across every team
             const now = Date.now();
             const t = (i) => new Date(i.createdAt).getTime();
             const series = Array.from({ length: 7 }, (_, d) => {
@@ -122,22 +120,8 @@ export default function AllTeamsOverview({ teams = [], items = [], search = '', 
             };
       }, [teams, items]);
 
-      const q = search.trim().toLowerCase();
-      const visible = data.rows
-            .filter((r) => !q || `${r.team.name} ${r.team.description}`.toLowerCase().includes(q))
-            .sort(SORTS[sort]);
-      const mine = visible.filter((r) => r.team.myRole);
-      const others = visible.filter((r) => !r.team.myRole);
-
-      // Renders a responsive grid of team cards
-      const grid = (list) => (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((r) => <TeamCard key={r.team.id || r.team._id} row={r} onOpen={onSelectTeam} />)}
-            </div>
-      );
-
       return (
-            <div className="space-y-4">
+            <div className="space-y-6">
                   {/* ROW 1: clock + org numbers */}
                   <section className="grid gap-4 lg:grid-cols-4">
                         <LiveClockCard user={user} org={data.org} isLoading={isLoading} />
@@ -169,60 +153,12 @@ export default function AllTeamsOverview({ teams = [], items = [], search = '', 
                         <NeedsAttentionCard items={data.urgentItems.slice(0, 5)} total={data.urgentItems.length} onOpen={onSelectTeam} isLoading={isLoading} />
                   </section>
 
-                  {/* ROW 4: teams */}
-                  <section className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                              <h2 className="text-lg font-medium">Teams</h2>
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <Tabs value={scope} onValueChange={setScope}>
-                                          <TabsList>
-                                                <TabsTrigger value="all" className="cursor-pointer">All</TabsTrigger>
-                                                <TabsTrigger value="mine" className="cursor-pointer">My teams</TabsTrigger>
-                                                <TabsTrigger value="others" className="cursor-pointer">Other teams</TabsTrigger>
-                                          </TabsList>
-                                    </Tabs>
-                                    <Select value={sort} onValueChange={setSort}>
-                                          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-                                          <SelectContent>
-                                                <SelectItem value="default">Default order</SelectItem>
-                                                <SelectItem value="urgent">Most urgent</SelectItem>
-                                                <SelectItem value="active">Most active</SelectItem>
-                                                <SelectItem value="name">Name (A–Z)</SelectItem>
-                                          </SelectContent>
-                                    </Select>
-                              </div>
-                        </div>
-
-                        {isLoading ? (
-                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                                          <TeamCardSkeleton key={i} />
-                                    ))}
-                              </div>
-                        ) : (
-                              <>
-                                    {scope !== 'others' && mine.length > 0 && (
-                                          <div className="space-y-3">
-                                                <h3 className="text-sm font-medium text-muted-foreground">My teams</h3>
-                                                {grid(mine)}
-                                          </div>
-                                    )}
-
-                                    {scope !== 'mine' && others.length > 0 && (
-                                          <div className="space-y-3">
-                                                <h3 className="text-sm font-medium text-muted-foreground">
-                                                      Other teams <span className="font-normal">· You can view these teams but not edit them.</span>
-                                                </h3>
-                                                {grid(others)}
-                                          </div>
-                                    )}
-
-                                    {visible.length === 0 && (
-                                          <p className="py-10 text-center text-sm text-muted-foreground">No teams match "{search}".</p>
-                                    )}
-                              </>
-                        )}
-                  </section>
+                  {/* ROW 4: Optimized Top Active Teams */}
+                  <ActiveTeamsSection
+                        rows={data.rows}
+                        onSelectTeam={onSelectTeam}
+                        isLoading={isLoading}
+                  />
             </div>
       );
 }

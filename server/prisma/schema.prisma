@@ -20,6 +20,7 @@ model User {
       assigned    WorkItem[]       @relation("AssignedWorkItems")
       comments    Comment[]
       activities  ActivityEvent[]
+      pinnedTeams PinnedTeam[]
 }
 
 // 2. Teams table
@@ -31,6 +32,7 @@ model Team {
 
       memberships TeamMembership[]
       workItems   WorkItem[]
+      pinnedBy    PinnedTeam[]
 }
 
 // 3. Team Memberships (Many-to-Many with Roles)
@@ -113,4 +115,17 @@ model OutboxJob {
       status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
       attempts  Int      @default(0)
       createdAt DateTime @default(now())
+}
+
+// 9. Pinned Teams (User bookmarks for teams directory & sidebar)
+model PinnedTeam {
+      id        String   @id @default(uuid())
+      userId    String
+      teamId    String
+      createdAt DateTime @default(now())
+
+      user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+      team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+      @@unique([userId, teamId])
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireTeamRole } from "../middlewares/auth.middleware.js";
-import { createTeam, addTeamMember, updateTeamMemberRole, getUserTeams, getTeamMembers, getAllTeams } from "../controllers/teams.controller.js";
+import { createTeam, addTeamMember, updateTeamMemberRole, getUserTeams, getTeamMembers, getAllTeams, getPinnedTeams, togglePinTeam } from "../controllers/teams.controller.js";
 import { idempotencyMiddleware } from "../middlewares/idempotency.middleware.js";
 
 const teamRouter = Router();
@@ -23,5 +23,11 @@ teamRouter.get('/teams/:teamId/members', requireAuth, getTeamMembers);
 
 //6. Get all Teams
 teamRouter.get('/teams', requireAuth, getAllTeams);
+
+//7. Get all Pinned Teams for user
+teamRouter.get('/teams/pinned', requireAuth, getPinnedTeams);
+
+//8. Toggle Pin status of a team
+teamRouter.post('/teams/:teamId/pin', requireAuth, togglePinTeam);
 
 export default teamRouter;

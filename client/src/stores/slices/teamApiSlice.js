@@ -12,8 +12,41 @@ export const teamsApiSlice = createApi({
                   return headers;
             },
       }),
-      tagTypes: ['Team', 'Member'],
+      tagTypes: ['Team', 'Member', 'Pinned'],
       endpoints: (builder) => ({
+            // User ki saari pinned teams fetch karne ke liye — GET /teams/pinned
+            getPinnedTeams: builder.query({
+                  query: () => '/teams/pinned',
+                  transformResponse: (response) => response?.teamIds || [],
+                  providesTags: ['Pinned'],
+            }),
+
+            // Team ko pin/unpin (bookmark) karne ke liye optimistic update ke sath — POST /teams/:teamId/pin
+            togglePinTeam: builder.mutation({
+                  query: (teamId) => ({
+                        url: `/teams/${teamId}/pin`,
+                        method: 'POST',
+                  }),
+                  // Optimistic cache update: click karte hi UI turant update hoga!
+                  async onQueryStarted(teamId, { dispatch, queryFulfilled }) {
+                        const patchResult = dispatch(
+                              teamsApiSlice.util.updateQueryData('getPinnedTeams', undefined, (draft) => {
+                                    const index = draft.indexOf(teamId);
+                                    if (index > -1) {
+                                          draft.splice(index, 1);
+                                    } else {
+                                          draft.push(teamId);
+                                    }
+                              })
+                        );
+                        try {
+                              await queryFulfilled;
+                        } catch {
+                              patchResult.undo();
+                        }
+                  },
+            }),
+
             // Saari teams (Organization overview ke liye)
             getAllTeams: builder.query({
                   query: () => '/teams',
@@ -79,6 +112,8 @@ export const {
       useGetAllTeamsQuery,
       useGetUserTeamsQuery,
       useGetTeamMembersQuery,
+      useGetPinnedTeamsQuery,
+      useTogglePinTeamMutation,
       useCreateTeamMutation,
       useAddTeamMemberMutation,
       useUpdateTeamMemberRoleMutation,

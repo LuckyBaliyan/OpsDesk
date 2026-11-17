@@ -156,7 +156,7 @@ export default function UsersView({ activeTeam, members, isAdmin, currentUserId 
                               </CardTitle>
                               <CardDescription className="text-sm">
                                     {activeTeam
-                                          ? `Showing all app users · ${isAdmin ? 'You can add them to ' + activeTeam.name : 'Admin access required to add members'}`
+                                          ? `Showing all app users · ${isAdmin ? 'You can add them to ' + (activeTeam?.name || 'team') : 'Admin access required to add members'}`
                                           : 'Select a team to manage membership'}
                               </CardDescription>
                         </CardHeader>
