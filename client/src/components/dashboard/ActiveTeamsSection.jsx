@@ -31,10 +31,10 @@ export default function ActiveTeamsSection({
       }, [sortedByActivity]);
 
       /**
-       * Navigates to the full All Teams directory page.
+       * Navigates to the full Organization Directory page.
        */
       const handleOpenDirectory = () => {
-            navigate('/teams');
+            navigate('/directory');
       };
 
       return (

@@ -15,10 +15,18 @@ export const usersApiSlice = createApi({
       }),
       tagTypes: ['User'],
       endpoints: (builder) => ({
-            // Saare users fetch karne ke liye — GET /users (optional search query)
+            // Saare users fetch karne ke liye — GET /users (supports search query aur teamId filter)
             getUsers: builder.query({
-                  query: (search = '') =>
-                        search ? `/users?search=${encodeURIComponent(search)}` : '/users',
+                  query: (arg = '') => {
+                        if (typeof arg === 'string') {
+                              return arg ? `/users?search=${encodeURIComponent(arg)}` : '/users';
+                        }
+                        const params = new URLSearchParams();
+                        if (arg?.search) params.append('search', arg.search);
+                        if (arg?.teamId && arg.teamId !== 'all') params.append('teamId', arg.teamId);
+                        const qs = params.toString();
+                        return qs ? `/users?${qs}` : '/users';
+                  },
                   providesTags: ['User'],
             }),
       }),

@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { usersApiSlice } from './usersApiSlice';
 
 export const teamsApiSlice = createApi({
       reducerPath: 'teamsApi',
@@ -12,7 +13,7 @@ export const teamsApiSlice = createApi({
                   return headers;
             },
       }),
-      tagTypes: ['Team', 'Member', 'Pinned'],
+      tagTypes: ['Team', 'Member', 'Pinned', 'User'],
       endpoints: (builder) => ({
             // User ki saari pinned teams fetch karne ke liye — GET /teams/pinned
             getPinnedTeams: builder.query({
@@ -91,6 +92,13 @@ export const teamsApiSlice = createApi({
                         { type: 'Member', id: teamId },
                         'Team',
                   ],
+                  // User add hone par Users directory tag invalidate karein taaki user directory turant update ho
+                  async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                        try {
+                              await queryFulfilled;
+                              dispatch(usersApiSlice.util.invalidateTags(['User']));
+                        } catch {}
+                  },
             }),
 
             // Team member ka role update karne ke liye — PATCH /teams/:teamId/members/:memberId

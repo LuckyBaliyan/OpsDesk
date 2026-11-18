@@ -69,9 +69,9 @@ export const addTeamMember = async (req: AuthenticatedRequest, res: Response): P
             }
 
             // Validate role input
-            const validRoles = ['Lead', 'Member', 'Viewer'];
+            const validRoles = ['Admin', 'Lead', 'Member', 'Viewer'];
             if (!validRoles.includes(role)) {
-                  res.status(400).json({ error: 'Invalid role. Allowed roles: Lead, Member, Viewer' });
+                  res.status(400).json({ error: 'Invalid role. Allowed roles: Admin, Lead, Member, Viewer' });
                   return;
             }
 

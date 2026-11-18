@@ -97,10 +97,10 @@ export default function SidebarContent({
       };
 
       /**
-       * Navigates to the dedicated All Teams directory view.
+       * Navigates to the unified Organization Directory view.
        */
       const handleBrowseTeams = () => {
-            navigate('/teams');
+            navigate('/directory');
             onNavigate?.();
       };
 

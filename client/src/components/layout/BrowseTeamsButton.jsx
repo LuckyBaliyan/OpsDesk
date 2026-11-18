@@ -11,7 +11,7 @@ export default function BrowseTeamsButton({ onClick }) {
                   onClick={onClick}
                   className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-card/60 px-4 py-3 text-sm font-medium text-foreground transition-all hover:bg-muted/70 hover:border-border active:scale-[0.99] shadow-xs"
             >
-                  <span>Browse all teams</span>
+                  <span>Browse Directory</span>
                   <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
       );

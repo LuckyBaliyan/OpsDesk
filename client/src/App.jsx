@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashBoard from './pages/DashBoard';
-import TeamsDirectory from './pages/TeamsDirectory';
+import DirectoryPage from './pages/DirectoryPage';
 import WorkItemDetail from './pages/WorkItemDetail';
 import Protected from './components/auth/Protected';
 
@@ -21,10 +21,17 @@ export default function App() {
         </Protected>
       } />
 
-      {/* Dedicated All Teams Directory */}
+      {/* Unified Organization Directory (Teams & Users) */}
+      <Route path="/directory" element={
+        <Protected>
+          <DirectoryPage />
+        </Protected>
+      } />
+
+      {/* Legacy /teams alias for seamless backwards compatibility */}
       <Route path="/teams" element={
         <Protected>
-          <TeamsDirectory />
+          <DirectoryPage />
         </Protected>
       } />
 
