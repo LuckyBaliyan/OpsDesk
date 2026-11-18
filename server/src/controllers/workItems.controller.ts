@@ -258,7 +258,8 @@ export const updateWork = async (req: AuthenticatedRequest, res: Response): Prom
                               type: type ?? existingItem.type,
                               assigneeId: cleanAssigneeId,
                               version: { increment: 1 }
-                        }
+                        },
+                        include: { assignee: true, createdBy: true }
                   });
 
                   // Build descriptive audit trail message capturing all changed fields

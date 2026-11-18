@@ -76,16 +76,22 @@ export default function EditItemDialog({
 
       /**
        * Submits updated work item values to the parent handler if valid.
+       * Includes optimistic assignee object so table immediately renders avatar & name.
        */
       const save = () => {
             if (!canEdit) return;
 
             // Normalize assigneeId (empty string or 'none' maps to null)
             const cleanAssignee = form.assigneeId === '' || form.assigneeId === 'none' ? null : form.assigneeId;
+            const assigneeMember = members?.find((m) => m.userId === cleanAssignee || m.user?.id === cleanAssignee);
+            const assigneeUser = cleanAssignee && assigneeMember
+                  ? (assigneeMember.user || { id: cleanAssignee, name: assigneeMember.name, email: assigneeMember.email })
+                  : null;
 
             onSave(item.id, {
                   ...form,
                   assigneeId: cleanAssignee,
+                  assignee: assigneeUser,
             });
             onClose();
       };

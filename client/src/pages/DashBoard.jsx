@@ -232,22 +232,18 @@ export default function DashBoard() {
       // Holds the item pending delete confirmation in the overlay dialog (null = no dialog)
       const [confirmDeleteItem, setConfirmDeleteItem] = useState(null);
 
-      // Combined mutation state indicating active work item CRUD operation
-      const isWorkItemMutating = isCreating || isUpdating || isDeleting;
-
-      // Combined loading flag for WorkItemsCard (initial load, background refetch, or mutation in progress)
+      // WorkItemsCard only shows skeletons during initial page load, opening a team, or creating a new item.
+      // Skeletons are intentionally not shown on updates or refetches so optimistic changes show instantly (0ms).
       const isWorkItemsCardLoading =
             isDashboardLoading ||
             isWorkItemsLoading ||
-            isWorkItemsFetching ||
-            isWorkItemMutating;
+            isCreating;
 
-      // Combined loading flag for RecentActivityCard (initial load, item switch, activities refetch, or CRUD mutation)
+      // RecentActivityCard loading state: skeletons on initial load or new item creation, not on inline updates
       const isActivitiesCardLoading =
             isDashboardLoading ||
             isActivitiesLoading ||
-            isActivitiesFetching ||
-            isWorkItemMutating;
+            isCreating;
 
       /**
        * Handler for CreateItemDialog — calls POST /work-items API with active team id.

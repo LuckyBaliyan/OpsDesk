@@ -5,7 +5,6 @@ export const commentsApiSlice = createApi({
       baseQuery: fetchBaseQuery({
             baseUrl: `${import.meta.env.VITE_API_URL}/api`,
             prepareHeaders: (headers) => {
-                  // Har request mein auth token attach karo
                   const token = localStorage.getItem('opsdesk_token');
                   if (token) {
                         headers.set('authorization', `Bearer ${token}`);
@@ -19,14 +18,13 @@ export const commentsApiSlice = createApi({
             getCommentsByWorkItem: builder.query({
                   query: ({ workItemId, page = 1, limit = 50 }) =>
                         `/work-items/${workItemId}/comments?page=${page}&limit=${limit}`,
-                  // Response ka data field extract karo (server returns { data, pagination })
                   transformResponse: (response) => response.data || response,
                   providesTags: (result, error, { workItemId }) => [
                         { type: 'Comment', id: workItemId },
                   ],
             }),
 
-            // Naya comment add karne ke liye — POST /work-items/:workItemId/comments
+            // Naya comment add karne ke liye — optimistically thread mein turant push hota hai
             addComment: builder.mutation({
                   query: ({ workItemId, body }) => ({
                         url: `/work-items/${workItemId}/comments`,
@@ -34,10 +32,67 @@ export const commentsApiSlice = createApi({
                         body: { body },
                         headers: { 'idempotency-key': `add-comment-${workItemId}-${Date.now()}` },
                   }),
-                  // Add ke baad us work item ke comments list refresh karo
                   invalidatesTags: (result, error, { workItemId }) => [
                         { type: 'Comment', id: workItemId },
                   ],
+                  async onQueryStarted({ workItemId, body }, { dispatch, getState, queryFulfilled }) {
+                        const currentUser = getState().user?.user;
+                        const tempId = `temp-${Date.now()}`;
+
+                        // Optimistic comment item
+                        const optimisticComment = {
+                              id: tempId,
+                              body,
+                              workItemId,
+                              createdAt: new Date().toISOString(),
+                              authorId: currentUser?.id || 'me',
+                              author: {
+                                    id: currentUser?.id || 'me',
+                                    name: currentUser?.name || 'You',
+                                    email: currentUser?.email || '',
+                              },
+                        };
+
+                        // Work item ke sabhi active comment query caches ko update karein
+                        const patches = [];
+                        const queries = getState().commentsApi.queries || {};
+                        for (const { endpointName, originalArgs } of Object.values(queries)) {
+                              if (endpointName === 'getCommentsByWorkItem' && originalArgs?.workItemId === workItemId) {
+                                    const patch = dispatch(
+                                          commentsApiSlice.util.updateQueryData('getCommentsByWorkItem', originalArgs, (draft) => {
+                                                if (Array.isArray(draft)) {
+                                                      draft.push(optimisticComment);
+                                                }
+                                          })
+                                    );
+                                    patches.push(patch);
+                              }
+                        }
+
+                        try {
+                              const { data: serverComment } = await queryFulfilled;
+                              // Server response aane par temporary ID wale item ko actual server data se swap karein
+                              if (serverComment?.id) {
+                                    for (const { endpointName, originalArgs } of Object.values(getState().commentsApi.queries || {})) {
+                                          if (endpointName === 'getCommentsByWorkItem' && originalArgs?.workItemId === workItemId) {
+                                                dispatch(
+                                                      commentsApiSlice.util.updateQueryData('getCommentsByWorkItem', originalArgs, (draft) => {
+                                                            if (Array.isArray(draft)) {
+                                                                  const idx = draft.findIndex((c) => c.id === tempId);
+                                                                  if (idx !== -1) {
+                                                                        draft[idx] = serverComment;
+                                                                  }
+                                                            }
+                                                      })
+                                                );
+                                          }
+                                    }
+                              }
+                        } catch {
+                              // Network ya authorization failure par changes revert karein
+                              patches.forEach((p) => p.undo());
+                        }
+                  },
             }),
 
             // Comment update karne ke liye — PATCH /comments/:id
@@ -51,9 +106,32 @@ export const commentsApiSlice = createApi({
                   invalidatesTags: (result, error, { workItemId }) => [
                         { type: 'Comment', id: workItemId },
                   ],
+                  async onQueryStarted({ id, body, workItemId }, { dispatch, getState, queryFulfilled }) {
+                        const patches = [];
+                        const queries = getState().commentsApi.queries || {};
+                        for (const { endpointName, originalArgs } of Object.values(queries)) {
+                              if (endpointName === 'getCommentsByWorkItem' && (!workItemId || originalArgs?.workItemId === workItemId)) {
+                                    const patch = dispatch(
+                                          commentsApiSlice.util.updateQueryData('getCommentsByWorkItem', originalArgs, (draft) => {
+                                                if (Array.isArray(draft)) {
+                                                      const target = draft.find((c) => c.id === id);
+                                                      if (target) target.body = body;
+                                                }
+                                          })
+                                    );
+                                    patches.push(patch);
+                              }
+                        }
+
+                        try {
+                              await queryFulfilled;
+                        } catch {
+                              patches.forEach((p) => p.undo());
+                        }
+                  },
             }),
 
-            // Comment delete karne ke liye — DELETE /comments/:id
+            // Comment delete karne ke liye — DELETE /comments/:id (instant cache removal)
             deleteComment: builder.mutation({
                   query: ({ id }) => ({
                         url: `/comments/${id}`,
@@ -62,6 +140,30 @@ export const commentsApiSlice = createApi({
                   invalidatesTags: (result, error, { workItemId }) => [
                         { type: 'Comment', id: workItemId },
                   ],
+                  async onQueryStarted({ id, workItemId }, { dispatch, getState, queryFulfilled }) {
+                        const patches = [];
+                        const queries = getState().commentsApi.queries || {};
+                        for (const { endpointName, originalArgs } of Object.values(queries)) {
+                              if (endpointName === 'getCommentsByWorkItem' && (!workItemId || originalArgs?.workItemId === workItemId)) {
+                                    const patch = dispatch(
+                                          commentsApiSlice.util.updateQueryData('getCommentsByWorkItem', originalArgs, (draft) => {
+                                                if (Array.isArray(draft)) {
+                                                      const idx = draft.findIndex((c) => c.id === id);
+                                                      if (idx !== -1) draft.splice(idx, 1);
+                                                }
+                                          })
+                                    );
+                                    patches.push(patch);
+                              }
+                        }
+
+                        try {
+                              await queryFulfilled;
+                        } catch {
+                              // Deletion reject hone par wapis revert karein
+                              patches.forEach((p) => p.undo());
+                        }
+                  },
             }),
       }),
 });

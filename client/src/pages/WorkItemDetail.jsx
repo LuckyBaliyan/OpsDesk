@@ -279,17 +279,22 @@ function CommentsSection({ workItemId, currentUser }) {
       const [addComment, { isLoading: submitting }] = useAddCommentMutation();
 
       /**
-       * Submits a newly composed comment to the server
+       * Submits a newly composed comment to the server with optimistic UI update
        */
       const handleSubmit = async (e) => {
             e?.preventDefault();
-            if (!body.trim()) return;
+            const content = body.trim();
+            if (!content) return;
+
+            // Clear input immediately for snappy Linear-like responsiveness
+            setBody('');
+            setPage(1);
             try {
-                  await addComment({ workItemId, body: body.trim() }).unwrap();
-                  setBody('');
-                  setPage(1);
+                  await addComment({ workItemId, body: content }).unwrap();
             } catch (err) {
                   console.error('Add comment failed:', err);
+                  // Restore text if the network or server rejected it
+                  setBody(content);
             }
       };
 
